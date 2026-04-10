@@ -1,0 +1,16 @@
+[Unit]
+Description=PiStats Raspberry Pi monitoring backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zen
+WorkingDirectory=/home/zen/pistats-backend
+EnvironmentFile=/home/zen/pistats-backend/.env
+ExecStart=/usr/bin/python3 -m pi_backend.server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
