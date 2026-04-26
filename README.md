@@ -1,6 +1,6 @@
 # PiStats Backend
 
-PiStats Backend is a lightweight read-only HTTP JSON API for monitoring a Raspberry Pi.
+PiStats Backend is a lightweight private HTTP JSON API for monitoring a Raspberry Pi and relaying Wake-on-LAN.
 
 It is designed to pair with the PiStats Android app, but it is also usable as a standalone service by anything that can poll JSON endpoints.
 
@@ -9,18 +9,19 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - bearer-token auth
 - localhost binding by default
 - optional direct binding to the Pi Tailscale interface
-- read-only endpoints only
+- read-only monitoring endpoints
+- protected Wake-on-LAN endpoint
 - lightweight Linux collectors
 - Docker-aware service status
 - backup drive detection
+- Wake-on-LAN relay over the Pi's LAN
 - repeatable Pi install script
 
 ## API endpoints
 
 - `GET /api/health`
 - `GET /api/stats`
-- `GET /api/services`
-- `GET /api/backup-status`
+- `POST /api/wakeonlan/wake`
 
 Example `GET /api/stats` response:
 
@@ -70,14 +71,24 @@ Default bind:
 To expose it over Tailscale:
 
 ```bash
-PISTATS_TOKEN=change-me PISTATS_BIND_MODE=tailscale python3 -m pi_backend.server
+PISTATS_TOKEN=change-me \
+PISTATS_BIND_MODE=tailscale \
+PISTATS_WAKE_MAC=34:5a:60:f9:4b:96 \
+python3 -m pi_backend.server
 ```
 
 ## Quick install on a Pi
 
-Copy this repo, or just this backend project, onto the Pi. Then run:
+From your development machine:
 
 ```bash
+rsync -av ./ zen@pi:/home/zen/pistats-backend/
+```
+
+Then on the Pi:
+
+```bash
+ssh zen@pi
 cd /home/zen/pistats-backend
 sudo ./install-on-pi.sh --token 'replace-with-a-strong-token'
 ```
@@ -89,6 +100,16 @@ The installer:
 - writes the `systemd` unit
 - enables and starts `pistats.service`
 - automatically selects a free port if the requested port is busy
+
+For Wake-on-LAN, pass the PC MAC address and LAN broadcast address:
+
+```bash
+sudo ./install-on-pi.sh \
+  --token 'replace-with-a-strong-token' \
+  --wake-mac '34:5a:60:f9:4b:96' \
+  --wake-broadcast 192.168.1.255 \
+  --wake-port 9
+```
 
 ## Environment variables
 
@@ -112,6 +133,45 @@ The installer:
   - optional expected mountpoint to check first
 - `PISTATS_DEV_MODE`
   - set to `1` to disable auth for local development only
+- `PISTATS_WAKE_MAC`
+  - PC MAC address to wake, for example `34:5a:60:f9:4b:96`
+- `PISTATS_WAKE_BROADCAST`
+  - LAN broadcast address used for the magic packet
+  - default: `192.168.1.255`
+- `PISTATS_WAKE_PORT`
+  - UDP port used for Wake-on-LAN
+  - default: `9`
+
+## Wake-on-LAN
+
+The Wake-on-LAN endpoint sends a magic packet from the Pi to the configured LAN
+broadcast address. It accepts either:
+
+```text
+Authorization: Bearer <token>
+```
+
+or:
+
+```text
+X-Wake-Token: <token>
+```
+
+Example:
+
+```bash
+curl -X POST -H "X-Wake-Token: change-me" http://127.0.0.1:8787/api/wakeonlan/wake
+```
+
+Success response:
+
+```json
+{
+  "status": "sent",
+  "broadcast": "192.168.1.255",
+  "port": 9
+}
+```
 
 ## Install script
 
@@ -121,6 +181,7 @@ Examples:
 sudo ./install-on-pi.sh --token 'replace-with-a-strong-token'
 sudo ./install-on-pi.sh --port 8788 --token 'replace-with-a-strong-token'
 sudo ./install-on-pi.sh --bind-mode localhost --token 'replace-with-a-strong-token'
+sudo ./install-on-pi.sh --wake-mac '34:5a:60:f9:4b:96' --wake-broadcast 192.168.1.255 --token 'replace-with-a-strong-token'
 sudo ./install-on-pi.sh --force-env --token 'replace-with-a-strong-token'
 ```
 

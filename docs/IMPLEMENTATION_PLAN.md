@@ -3,27 +3,28 @@
 ## Why this backend stack
 
 For v1, the Pi backend uses Python's standard library HTTP server instead of a heavier framework.
-That keeps dependencies at zero, makes local testing immediate on Linux, and is enough for a small read-only JSON API with bearer-token auth.
+That keeps dependencies at zero, makes local testing immediate on Linux, and is enough for a small private JSON API with bearer-token auth.
 
 ## Execution order
 
 1. Define a stable JSON contract for the Pi API.
-2. Implement a localhost-bound Pi backend with read-only endpoints.
+2. Implement a localhost-bound Pi backend with read-only monitoring endpoints.
 3. Test the backend locally and capture real JSON responses.
 4. Build the Android client against that contract.
 5. Add token auth, persisted settings, and polling.
+6. Add the protected Wake-on-LAN relay once the monitoring path is stable.
 
 ## Backend scope
 
-- Folder: `pi-backend/`
+- Folder: this backend repository root
 - Runtime: Python 3.11+ preferred, no third-party packages required
 - Default bind: `127.0.0.1:8787`
 - Auth: `Authorization: Bearer <token>`
+- Wake auth alias: `X-Wake-Token: <token>`
 - Endpoints:
   - `GET /api/health`
   - `GET /api/stats`
-  - `GET /api/services`
-  - `GET /api/backup-status`
+  - `POST /api/wakeonlan/wake`
 
 ## Backend implementation notes
 
@@ -35,6 +36,8 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Temperature: `/sys/class/thermal/*`
 - Docker service status: `docker inspect` when Docker is available
 - Backup drive state: `lsblk` + `findmnt`, with optional mountpoint/label hints from environment
+- Wake-on-LAN: Python UDP magic packet sent to `PISTATS_WAKE_BROADCAST:PISTATS_WAKE_PORT`
+  for `PISTATS_WAKE_MAC`; no third-party wake dependency is required
 
 ## Android scope
 
@@ -47,8 +50,21 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   - Dashboard
   - Settings
 - Polling every 5 seconds while dashboard is visible/configured
+- Dashboard includes a Wake PC action that posts to `/api/wakeonlan/wake`
 
 ## Stable response contract
+
+`GET /api/health`
+
+```json
+{
+  "status": "ok",
+  "features": {
+    "stats": true,
+    "wakeonlan": true
+  }
+}
+```
 
 `GET /api/stats`
 
@@ -85,9 +101,19 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 }
 ```
 
+`POST /api/wakeonlan/wake`
+
+```json
+{
+  "status": "sent",
+  "broadcast": "192.168.1.255",
+  "port": 9
+}
+```
+
 ## Pi deployment outline
 
-1. Copy `pi-backend/` to the Raspberry Pi.
+1. Copy this backend repository to the Raspberry Pi.
 2. Set `PISTATS_TOKEN`.
 3. Optionally set:
    - `PISTATS_HOST`
@@ -95,5 +121,8 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
    - `PISTATS_SERVICES`
    - `PISTATS_BACKUP_LABEL`
    - `PISTATS_BACKUP_MOUNTPOINT`
+   - `PISTATS_WAKE_MAC`
+   - `PISTATS_WAKE_BROADCAST`
+   - `PISTATS_WAKE_PORT`
 4. Run `python3 -m pi_backend.server`.
 5. If remote access is needed, keep the API private and use Tailscale or another private path.

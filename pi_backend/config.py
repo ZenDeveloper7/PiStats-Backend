@@ -19,6 +19,9 @@ class Settings:
     services: tuple[str, ...]
     backup_label: str | None
     backup_mountpoint: str | None
+    wake_mac: str | None
+    wake_broadcast: str
+    wake_port: int
 
 
 def load_settings() -> Settings:
@@ -37,6 +40,9 @@ def load_settings() -> Settings:
         services=services or DEFAULT_SERVICES,
         backup_label=_clean_env("PISTATS_BACKUP_LABEL"),
         backup_mountpoint=_clean_env("PISTATS_BACKUP_MOUNTPOINT"),
+        wake_mac=_clean_env("PISTATS_WAKE_MAC"),
+        wake_broadcast=os.getenv("PISTATS_WAKE_BROADCAST", "192.168.1.255").strip() or "192.168.1.255",
+        wake_port=int(os.getenv("PISTATS_WAKE_PORT", "9")),
     )
 
 

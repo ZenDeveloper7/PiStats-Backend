@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run the PiStats backend as a private read-only monitoring API on your Raspberry Pi and point the Android app at it.
+Run the PiStats backend as a private monitoring API on your Raspberry Pi, point the Android app at it, and optionally relay Wake-on-LAN packets through the Pi.
 
 ## Assumptions
 
@@ -14,18 +14,19 @@ Run the PiStats backend as a private read-only monitoring API on your Raspberry 
   - `pihole`
 - You want the API kept private
 - Remote access goes through Tailscale
+- Your PC has Wake-on-LAN enabled if you plan to use the Wake PC button
 
 ## Copy the backend to the Pi
 
 From your development machine:
 
 ```bash
-rsync -av pi-backend/ zen@pi:/home/zen/pistats-backend/
+rsync -av ./ zen@pi:/home/zen/pistats-backend/
 ```
 
 ## Fast install script
 
-Once the `pi-backend/` folder is on the Pi, the quickest install path is:
+Once this backend repo is on the Pi, the quickest install path is:
 
 ```bash
 ssh zen@pi
@@ -47,6 +48,16 @@ If you need a different port:
 sudo ./install-on-pi.sh --port 8788 --token 'replace-with-a-strong-token'
 ```
 
+If you want Wake-on-LAN configured during install:
+
+```bash
+sudo ./install-on-pi.sh \
+  --token 'replace-with-a-strong-token' \
+  --wake-mac '34:5a:60:f9:4b:96' \
+  --wake-broadcast 192.168.1.255 \
+  --wake-port 9
+```
+
 Port behavior:
 
 - the installer treats `--port` as the preferred starting port
@@ -65,6 +76,9 @@ PISTATS_BIND_MODE=tailscale
 PISTATS_PORT=8787
 PISTATS_SERVICES=vaultwarden,trilium,samba,pihole
 PISTATS_BACKUP_LABEL=PiBackup
+PISTATS_WAKE_MAC=34:5a:60:f9:4b:96
+PISTATS_WAKE_BROADCAST=192.168.1.255
+PISTATS_WAKE_PORT=9
 # Optional:
 # PISTATS_TAILSCALE_IP=100.x.y.z
 # PISTATS_BACKUP_MOUNTPOINT=/media/zen/PiBackup
@@ -86,7 +100,9 @@ python3 -m pi_backend.server
 In another shell on the Pi:
 
 ```bash
+curl -H "Authorization: Bearer $PISTATS_TOKEN" http://127.0.0.1:8787/api/health
 curl -H "Authorization: Bearer $PISTATS_TOKEN" http://127.0.0.1:8787/api/stats
+curl -X POST -H "X-Wake-Token: $PISTATS_TOKEN" http://127.0.0.1:8787/api/wakeonlan/wake
 tailscale ip -4
 ```
 
@@ -94,6 +110,7 @@ Then from another device on your tailnet, call:
 
 ```bash
 curl -H "Authorization: Bearer $PISTATS_TOKEN" http://100.x.y.z:8787/api/stats
+curl -X POST -H "X-Wake-Token: $PISTATS_TOKEN" http://100.x.y.z:8787/api/wakeonlan/wake
 ```
 
 ## Install as a systemd service
@@ -123,6 +140,10 @@ In the app Settings screen, enter:
 - auth token:
   - the exact `PISTATS_TOKEN` value from the Pi
 
+The Dashboard Wake PC button uses the configured base URL and token. The PC MAC
+address stays on the Pi in `PISTATS_WAKE_MAC`; the Android app does not send or
+store it.
+
 ## Security notes
 
 - Use `PISTATS_BIND_MODE=tailscale` for Android access over Tailscale.
@@ -130,4 +151,7 @@ In the app Settings screen, enter:
 - The Android app is Tailscale-only and rejects non-Tailscale base URLs.
 - Do not expose this API publicly on the internet for v1.
 - Keep the token strong and unique.
-- v1 has no write endpoints by design.
+- Monitoring endpoints are read-only.
+- `POST /api/wakeonlan/wake` is the only write-style action and is protected by
+  the same token. Keep it reachable only through Tailscale or another private path.
+- For extra hardening, bind to the Pi Tailscale IP and avoid public port forwarding.

@@ -26,7 +26,6 @@ class StatsCollector:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._last_cpu_sample: CpuSample | None = None
-        self._last_cpu_timestamp: float | None = None
 
     def collect_all(self) -> dict[str, Any]:
         return {
@@ -57,7 +56,6 @@ class StatsCollector:
             current = self._read_cpu_sample()
 
         self._last_cpu_sample = current
-        self._last_cpu_timestamp = time.time()
 
         total_delta = current.total - previous.total
         idle_delta = current.idle - previous.idle
