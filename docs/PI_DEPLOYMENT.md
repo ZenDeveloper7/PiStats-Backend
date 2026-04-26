@@ -31,13 +31,14 @@ Once this backend repo is on the Pi, the quickest install path is:
 ```bash
 ssh zen@pi
 cd /home/zen/pistats-backend
-sudo ./install-on-pi.sh --token 'replace-with-a-strong-token'
+sudo ./install-on-pi.sh
 ```
 
 That script:
 
 - syncs the backend files into the install directory
 - creates or preserves `.env`
+- generates a strong token automatically if one is not provided
 - writes the `systemd` unit
 - reloads `systemd`
 - enables and starts `pistats.service`
@@ -45,17 +46,22 @@ That script:
 If you need a different port:
 
 ```bash
-sudo ./install-on-pi.sh --port 8788 --token 'replace-with-a-strong-token'
+sudo ./install-on-pi.sh --port 8788
 ```
 
 If you want Wake-on-LAN configured during install:
 
 ```bash
 sudo ./install-on-pi.sh \
-  --token 'replace-with-a-strong-token' \
   --wake-mac '34:5a:60:f9:4b:96' \
   --wake-broadcast 192.168.1.255 \
   --wake-port 9
+```
+
+Show the generated token afterward:
+
+```bash
+grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
 ```
 
 Port behavior:
@@ -138,7 +144,7 @@ In the app Settings screen, enter:
   - your Tailscale Pi address, for example `http://100.x.y.z:8787`
   - or a MagicDNS hostname ending in `.ts.net`
 - auth token:
-  - the exact `PISTATS_TOKEN` value from the Pi
+  - the exact `PISTATS_TOKEN` value from the Pi `.env` file
 
 The Dashboard Wake PC button uses the configured base URL and token. The PC MAC
 address stays on the Pi in `PISTATS_WAKE_MAC`; the Android app does not send or

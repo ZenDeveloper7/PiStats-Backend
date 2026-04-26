@@ -22,14 +22,14 @@ Options:
   --wake-mac MAC           PC MAC address for Wake-on-LAN. Default: 34:5a:60:f9:4b:96
   --wake-broadcast IP      LAN broadcast address for Wake-on-LAN. Default: 192.168.1.255
   --wake-port PORT         UDP port for Wake-on-LAN. Default: 9
-  --token TOKEN            Auth token written to .env if no .env exists yet
+  --token TOKEN            Optional auth token. If omitted, installer generates one.
   --force-env              Overwrite an existing .env file
   --no-start               Install files but do not enable/start the service
   -h, --help               Show this help
 
 Examples:
-  sudo ./install-on-pi.sh --token 'replace-me'
-  sudo ./install-on-pi.sh --user zen --bind-mode tailscale --port 8788 --token 'replace-me'
+  sudo ./install-on-pi.sh
+  sudo ./install-on-pi.sh --user zen --bind-mode tailscale --port 8788
 EOF
 }
 
@@ -233,12 +233,14 @@ chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}"
 chmod +x "${INSTALL_DIR}/install-on-pi.sh"
 
 if [[ ! -f "${ENV_PATH}" || "${FORCE_ENV}" == "1" ]]; then
+  generated_token="0"
   if [[ -z "${TOKEN}" ]]; then
     TOKEN="$(python3 - <<'PY'
 import secrets
 print(secrets.token_urlsafe(32))
 PY
 )"
+    generated_token="1"
   fi
 
   cat >"${ENV_PATH}" <<EOF
@@ -299,6 +301,13 @@ echo "PiStats install complete."
 echo "Config file: ${ENV_PATH}"
 echo "Service: ${SERVICE_NAME}.service"
 echo "Port: ${PORT}"
+if [[ "${generated_token:-0}" == "1" ]]; then
+  echo "Token: generated and written to ${ENV_PATH}"
+else
+  echo "Token: using the value provided to --token"
+fi
+echo "Show token:"
+echo "  grep '^PISTATS_TOKEN=' ${ENV_PATH}"
 
 if [[ "${BIND_MODE}" == "tailscale" ]]; then
   echo

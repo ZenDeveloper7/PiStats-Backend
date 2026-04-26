@@ -90,13 +90,14 @@ Then on the Pi:
 ```bash
 ssh zen@pi
 cd /home/zen/pistats-backend
-sudo ./install-on-pi.sh --token 'replace-with-a-strong-token'
+sudo ./install-on-pi.sh
 ```
 
 The installer:
 
 - syncs files into the install directory
 - creates or preserves `.env`
+- generates a strong token automatically if one is not provided
 - writes the `systemd` unit
 - enables and starts `pistats.service`
 - automatically selects a free port if the requested port is busy
@@ -105,16 +106,22 @@ For Wake-on-LAN, pass the PC MAC address and LAN broadcast address:
 
 ```bash
 sudo ./install-on-pi.sh \
-  --token 'replace-with-a-strong-token' \
   --wake-mac '34:5a:60:f9:4b:96' \
   --wake-broadcast 192.168.1.255 \
   --wake-port 9
+```
+
+Show the generated token afterward:
+
+```bash
+grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
 ```
 
 ## Environment variables
 
 - `PISTATS_TOKEN`
   - required for non-dev usage
+  - generated automatically by the installer if `--token` is omitted
 - `PISTATS_BIND_MODE`
   - one of: `localhost`, `tailscale`, `custom`
   - default: `localhost`
@@ -178,11 +185,11 @@ Success response:
 Examples:
 
 ```bash
-sudo ./install-on-pi.sh --token 'replace-with-a-strong-token'
-sudo ./install-on-pi.sh --port 8788 --token 'replace-with-a-strong-token'
-sudo ./install-on-pi.sh --bind-mode localhost --token 'replace-with-a-strong-token'
-sudo ./install-on-pi.sh --wake-mac '34:5a:60:f9:4b:96' --wake-broadcast 192.168.1.255 --token 'replace-with-a-strong-token'
-sudo ./install-on-pi.sh --force-env --token 'replace-with-a-strong-token'
+sudo ./install-on-pi.sh
+sudo ./install-on-pi.sh --port 8788
+sudo ./install-on-pi.sh --bind-mode localhost
+sudo ./install-on-pi.sh --wake-mac '34:5a:60:f9:4b:96' --wake-broadcast 192.168.1.255
+sudo ./install-on-pi.sh --force-env
 ```
 
 Port behavior:
