@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PiStats Privacy Policy</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --text: #0e1726;
+      --muted: #44576d;
+      --accent: #1a4368;
+      --border: #d7e1ec;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    article {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+    }
+
+    h1, h2 {
+      color: var(--accent);
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 2rem;
+    }
+
+    h2 {
+      margin-top: 2rem;
+      font-size: 1.2rem;
+    }
+
+    p, li {
+      color: var(--text);
+    }
+
+    .meta {
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    a {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>PiStats Privacy Policy</h1>
+      <p class="meta">Last updated: April 27, 2026</p>
+
+      <p>
+        PiStats is an Android app for monitoring a Raspberry Pi through a self-hosted backend.
+        This Privacy Policy explains what PiStats stores, how it communicates, and what data is
+        under your control.
+      </p>
+
+      <h2>Information PiStats stores</h2>
+      <p>PiStats stores the following information locally on your Android device:</p>
+      <ul>
+        <li>The backend base URL you configure</li>
+        <li>The backend authentication token you configure</li>
+        <li>Cached widget state derived from backend responses</li>
+      </ul>
+
+      <h2>Information PiStats transmits</h2>
+      <p>
+        PiStats sends requests only to the backend address you configure. These requests may include:
+      </p>
+      <ul>
+        <li>Authenticated telemetry requests to read Raspberry Pi status</li>
+        <li>Authenticated Wake-on-LAN requests when you use the Wake PC action</li>
+      </ul>
+
+      <h2>Personal data</h2>
+      <p>
+        PiStats does not require account creation and does not intentionally collect personal data
+        such as your name, email address, contacts, photos, messages, or location.
+      </p>
+
+      <h2>Analytics and advertising</h2>
+      <p>
+        PiStats does not include third-party advertising SDKs and does not use third-party analytics
+        services.
+      </p>
+
+      <h2>Data sharing</h2>
+      <p>
+        PiStats does not sell your data and does not share your data with third parties for
+        advertising or marketing purposes. Any data visible in the app comes from the backend you
+        operate or choose to connect to.
+      </p>
+
+      <h2>Backend responsibility</h2>
+      <p>
+        PiStats is designed to work with a self-hosted backend. Data handling on that backend,
+        including logs, access controls, backups, or network exposure, is controlled by the backend
+        operator.
+      </p>
+
+      <h2>Security</h2>
+      <p>
+        PiStats is intended to be used with a private backend, typically over Tailscale or another
+        private network path. You are responsible for protecting the backend token and keeping the
+        backend service private.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        PiStats is not directed to children and is intended as a technical utility application.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        This policy may be updated from time to time. The latest version will be published at the
+        same URL where this policy is hosted.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        If you need to contact the developer about this policy, use the support or contact details
+        provided in the app listing or repository profile.
+      </p>
+    </article>
+  </main>
+</body>
+</html>

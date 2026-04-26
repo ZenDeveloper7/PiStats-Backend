@@ -204,6 +204,20 @@ Port behavior:
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
 - [systemd example](pistats.service.example)
 - [sample env file](.env.example)
+- [Privacy Policy](privacy-policy.html)
+
+## Privacy policy hosting
+
+This repo includes a static privacy policy page for the Android app at
+`privacy-policy.html`.
+
+For a Play Store-friendly public URL, enable GitHub Pages for this repository
+and publish from the `main` branch root. Once Pages is enabled, the policy URL
+will be:
+
+```text
+https://zendeveloper7.github.io/PiStats-Backend/privacy-policy.html
+```
 
 ## License
 
