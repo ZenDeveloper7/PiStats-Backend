@@ -17,6 +17,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - backup drive detection
 - Wake-on-LAN relay over the Pi's LAN
 - repeatable Pi install script
+- signed APT repository and architecture-independent Debian package
 
 ## API endpoints
 
@@ -74,11 +75,37 @@ PISTATS_WAKE_MAC=00:11:22:33:44:55 \
 python3 -m pi_backend.server
 ```
 
-## Quick install on a Pi
+## Install on a Pi
 
-For packaged releases, use the Debian package or APT repository described in
-[Debian package and APT repository](docs/DEBIAN_PACKAGING.md). The script-based
-installation below remains available for development and manual deployments.
+The recommended installation method is the signed APT repository:
+
+```bash
+curl -fsSL https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/pistats-archive-keyring.gpg >/dev/null
+
+echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/PiStats-Backend/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/pistats.list >/dev/null
+
+sudo apt update
+sudo apt install pistats-backend
+```
+
+Then read the generated token and edit the site-specific configuration:
+
+```bash
+sudo sed -n 's/^PISTATS_TOKEN=//p' /etc/pistats/pistats.env
+sudoedit /etc/pistats/pistats.env
+sudo systemctl restart pistats-backend
+```
+
+See the [complete installation guide](docs/INSTALLATION.md) for key
+verification, Tailscale, Docker, Wake-on-LAN, media backup, upgrades, removal,
+and troubleshooting.
+
+## Source install on a Pi
+
+The script-based installation remains available for development and manual
+deployments.
 
 From your development machine:
 
@@ -222,6 +249,9 @@ Port behavior:
 
 ## Deployment docs
 
+- [Installation Guide](docs/INSTALLATION.md)
+- [v1.0.0 Release Notes](docs/RELEASE_NOTES.md)
+- [Maintainer Release Guide](docs/RELEASING.md)
 - [Pi Deployment Guide](docs/PI_DEPLOYMENT.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
 - [Media Backup API](docs/MEDIA_BACKUP_API.md)
@@ -235,9 +265,7 @@ Port behavior:
 This repo includes a static privacy policy page for the Android app at
 `privacy-policy.html`.
 
-For a Play Store-friendly public URL, enable GitHub Pages for this repository
-and publish from the `main` branch root. Once Pages is enabled, the policy URL
-will be:
+GitHub Pages is deployed by the APT publishing workflow. The policy URL is:
 
 ```text
 https://zendeveloper7.github.io/PiStats-Backend/privacy-policy.html

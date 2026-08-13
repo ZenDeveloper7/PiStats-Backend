@@ -1,5 +1,9 @@
 # Pi Deployment Guide
 
+This guide covers installation from a source checkout. Most users should use
+the signed Debian repository in the [installation guide](INSTALLATION.md), which
+supports normal APT upgrades and runs under a dedicated service account.
+
 ## Goal
 
 Run the PiStats backend as a private monitoring API on your Raspberry Pi, point the Android app at it, and optionally relay Wake-on-LAN packets through the Pi.

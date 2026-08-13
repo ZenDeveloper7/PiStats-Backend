@@ -3,6 +3,10 @@
 PiStats publishes an architecture-independent Debian package for Raspberry Pi
 OS and other Debian-based systems with Python 3.11 or newer.
 
+Users should follow the [installation guide](INSTALLATION.md). This document
+explains the package layout and distribution implementation; maintainers should
+also read the [release guide](RELEASING.md).
+
 ## Package layout
 
 ```text
@@ -75,33 +79,11 @@ Then add:
 PISTATS_MEDIA_BACKUP_ROOT=/srv/media/mobile-backups
 ```
 
-## Release a `.deb`
+## Automated distribution
 
-1. Update the version and entry in `debian/changelog`.
-2. Commit the release.
-3. Tag the same version, for example `v1.0.0`.
-4. Push the commit and tag.
-
-The `Release Debian package` workflow runs the tests, builds the package, runs
-Lintian, generates `SHA256SUMS`, and attaches the artifacts to the GitHub
-Release. A successful tagged release workflow then triggers APT publishing.
-
-## Publish the APT repository
-
-Create a dedicated GPG signing key and export its private key as ASCII armor:
-
-```bash
-gpg --batch --pinentry-mode loopback --passphrase '' --quick-generate-key \
-  "PiStats APT Repository <packages@example.com>" rsa4096 sign 2y
-gpg --armor --export-secret-keys "PiStats APT Repository" >pistats-apt-private.asc
-```
-
-Store the complete file contents in the GitHub Actions secret
-`APT_GPG_PRIVATE_KEY`. Protect that secret as a release credential; never commit
-it to this repository.
-
-In the GitHub repository settings, configure Pages to use **GitHub Actions**.
-Completing the release workflow triggers `Publish APT repository`, which:
+The release workflow runs tests, builds the package, runs Lintian, generates
+`SHA256SUMS`, and attaches artifacts to a GitHub Release. A successful tagged
+release triggers APT publishing, which:
 
 1. downloads all released `pistats-backend_*.deb` assets;
 2. creates `stable` indexes for `arm64`, `armhf`, and `all`;
@@ -109,7 +91,7 @@ Completing the release workflow triggers `Publish APT repository`, which:
 4. exports the public archive key; and
 5. deploys the repository under `/apt` on GitHub Pages.
 
-For this repository, users can configure it with:
+The live repository is configured with:
 
 ```bash
 curl -fsSL https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg \
