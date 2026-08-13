@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Debian packaging tools
-        run: sudo apt-get update && sudo apt-get install --yes debhelper devscripts lintian
+        run: sudo apt-get update && sudo apt-get install --yes build-essential debhelper devscripts lintian
 
       - name: Verify tag matches changelog
         if: github.ref_type == 'tag'
