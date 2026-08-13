@@ -40,10 +40,16 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                 self._send_json(
                     HTTPStatus.OK,
                     {
+                        "api_version": 1,
                         "status": "ok",
                         "features": {
                             "stats": True,
                             "wakeonlan": settings.wake_mac is not None,
+                            "media_backup": media_backup is not None,
+                            "backup_drive": bool(
+                                settings.backup_label or settings.backup_mountpoint
+                            ),
+                            "docker_services": bool(settings.services),
                         },
                     },
                 )
@@ -233,6 +239,8 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
 

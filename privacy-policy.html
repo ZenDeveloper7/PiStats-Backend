@@ -73,7 +73,7 @@
   <main>
     <article>
       <h1>PiStats Privacy Policy</h1>
-      <p class="meta">Last updated: April 27, 2026</p>
+      <p class="meta">Last updated: August 13, 2026</p>
 
       <p>
         PiStats is an Android app for monitoring a Raspberry Pi through a self-hosted backend.
@@ -85,7 +85,8 @@
       <p>PiStats stores the following information locally on your Android device:</p>
       <ul>
         <li>The backend base URL you configure</li>
-        <li>The backend authentication token you configure</li>
+        <li>The backend authentication token you configure, encrypted using Android Keystore</li>
+        <li>Your media-backup preferences and upload checkpoint, when enabled</li>
         <li>Cached widget state derived from backend responses</li>
       </ul>
 
@@ -96,12 +97,15 @@
       <ul>
         <li>Authenticated telemetry requests to read Raspberry Pi status</li>
         <li>Authenticated Wake-on-LAN requests when you use the Wake PC action</li>
+        <li>Photos and videos you authorize Android to make available, only when you enable media backup</li>
       </ul>
 
       <h2>Personal data</h2>
       <p>
         PiStats does not require account creation and does not intentionally collect personal data
-        such as your name, email address, contacts, photos, messages, or location.
+        such as your name, email address, contacts, messages, or location. If you enable media
+        backup, the app processes the photos and videos you authorize solely to upload them to the
+        self-hosted backend you configured.
       </p>
 
       <h2>Analytics and advertising</h2>
@@ -126,9 +130,9 @@
 
       <h2>Security</h2>
       <p>
-        PiStats is intended to be used with a private backend, typically over Tailscale or another
-        private network path. You are responsible for protecting the backend token and keeping the
-        backend service private.
+        PiStats is intended to be used with a private backend over a trusted LAN, Tailscale, or an
+        HTTPS endpoint. The app restricts cleartext HTTP configuration to private-network addresses.
+        You are responsible for protecting the backend token and keeping the service private.
       </p>
 
       <h2>Children</h2>

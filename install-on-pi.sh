@@ -479,6 +479,16 @@ EnvironmentFile=${ENV_PATH}
 ExecStart=/usr/bin/python3 -m pi_backend.server
 Restart=on-failure
 RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

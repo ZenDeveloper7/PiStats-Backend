@@ -62,7 +62,10 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   "status": "ok",
   "features": {
     "stats": true,
-    "wakeonlan": true
+    "wakeonlan": false,
+    "media_backup": false,
+    "backup_drive": false,
+    "docker_services": false
   }
 }
 ```

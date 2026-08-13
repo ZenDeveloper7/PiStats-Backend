@@ -182,7 +182,9 @@ PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=300
 
 The default temporary files and SQLite database are kept in a root-specific
 subdirectory under `/srv/media/.pistats-media-state`. Incomplete uploads remain
-outside the shared library and are removed periodically. See the
+outside the shared library and are removed periodically. Custom media, database,
+and temporary paths may use any writable absolute location accessible to the
+`pistats` service account. See the
 [media backup API](MEDIA_BACKUP_API.md) for the complete protocol.
 
 ## Upgrade
@@ -245,4 +247,3 @@ Do not run it alongside the Debian package on the same port. See the
 - Media endpoint returns `404`: configure `PISTATS_MEDIA_BACKUP_ROOT` and restart.
 - Media startup failure: ensure the root exists, is writable by `pistats`, and
   its state/temp paths are on the same filesystem.
-

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http.client
+import json
 import os
 import socket
 import sqlite3
@@ -102,6 +103,18 @@ class RunningServer:
         connection.close()
         return result
 
+    def get(self, path: str, *, token: str = TOKEN) -> tuple[int, bytes]:
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
+        connection.request(
+            "GET",
+            path,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response = connection.getresponse()
+        result = response.status, response.read()
+        connection.close()
+        return result
+
 
 class BlockingBody:
     def __init__(self, payload: bytes) -> None:
@@ -154,6 +167,23 @@ class MediaBackupApiTests(unittest.TestCase):
                 "SELECT state, size_bytes FROM media_uploads WHERE idempotency_key = 'key-1'"
             ).fetchone()
         self.assertEqual(row, ("completed", 9))
+
+    def test_health_advertises_only_configured_optional_features(self) -> None:
+        with RunningServer(self.settings) as server:
+            status, body = server.get("/api/health")
+
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        self.assertEqual(
+            payload["features"],
+            {
+                "stats": True,
+                "wakeonlan": False,
+                "media_backup": True,
+                "backup_drive": False,
+                "docker_services": False,
+            },
+        )
 
     def test_uses_canonical_extension_when_name_does_not_match_mime(self) -> None:
         with RunningServer(self.settings) as server:

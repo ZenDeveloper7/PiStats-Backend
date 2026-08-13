@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 
@@ -34,7 +36,7 @@ def load_settings() -> Settings:
         for value in os.getenv("PISTATS_SERVICES", "").split(",")
         if value.strip()
     )
-    return Settings(
+    settings = Settings(
         host=_resolve_host(bind_mode),
         port=int(os.getenv("PISTATS_PORT", "8787")),
         token=os.getenv("PISTATS_TOKEN", ""),
@@ -59,6 +61,31 @@ def load_settings() -> Settings:
             "PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS", 300
         ),
     )
+    _validate_settings(settings)
+    return settings
+
+
+def _validate_settings(settings: Settings) -> None:
+    if settings.bind_mode not in {"localhost", "tailscale", "custom"}:
+        raise ValueError("PISTATS_BIND_MODE must be localhost, tailscale, or custom")
+    if settings.port not in range(1, 65_536):
+        raise ValueError("PISTATS_PORT must be between 1 and 65535")
+    if not settings.dev_mode and not settings.token:
+        raise ValueError("PISTATS_TOKEN is required unless PISTATS_DEV_MODE=1")
+    if settings.dev_mode and settings.host not in {"127.0.0.1", "::1", "localhost"}:
+        raise ValueError("PISTATS_DEV_MODE may only bind to localhost")
+    if settings.wake_port not in range(1, 65_536):
+        raise ValueError("PISTATS_WAKE_PORT must be between 1 and 65535")
+    if settings.wake_mac:
+        normalized_mac = re.sub(r"[^0-9A-Fa-f]", "", settings.wake_mac)
+        if len(normalized_mac) != 12:
+            raise ValueError("PISTATS_WAKE_MAC must contain exactly 12 hexadecimal digits")
+        try:
+            broadcast = ipaddress.ip_address(settings.wake_broadcast)
+        except ValueError as exc:
+            raise ValueError("PISTATS_WAKE_BROADCAST must be a valid IPv4 address") from exc
+        if broadcast.version != 4:
+            raise ValueError("PISTATS_WAKE_BROADCAST must be an IPv4 address")
 
 
 def _clean_env(key: str) -> str | None:

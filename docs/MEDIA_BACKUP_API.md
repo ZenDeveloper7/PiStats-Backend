@@ -1,8 +1,8 @@
 # Media backup API
 
 PiStats discovers media through Android `MediaStore` and streams each file to the
-existing Pi service. The Pi service, not the Android app, owns Samba credentials
-and filesystem access.
+existing Pi service. The Pi service, not the Android app, owns filesystem and
+optional network-share credentials.
 
 ## Endpoint
 
@@ -41,18 +41,18 @@ latitude, longitude, or a device hardware identifier.
 3. Ignore path separators from `display_name`; generate the destination path on
    the server. Treat `relative_path` as untrusted display metadata, not a path.
 4. Stream to a temporary file on the same filesystem, verify the received byte
-   count, `fsync`, and atomically rename it into the Samba-backed library.
+   count, `fsync`, and atomically rename it into the configured library.
 5. Store the idempotency key in a durable database with a unique constraint. A
    repeated completed request returns `409` without creating a second file.
 6. Keep incomplete temporary files outside the shared library and remove them on
    a schedule.
-7. Never expose Samba credentials to the Android client. Bind privately and use
-   the existing Tailscale-only access controls.
+7. Never expose filesystem or network-share credentials to the Android client.
+   Bind privately and use the installation's private-network access controls.
 
 One practical destination layout is:
 
 ```text
-<samba-media-root>/<device-id>/<yyyy>/<MM>/<server-generated-name>
+<media-root>/<device-id>/<yyyy>/<MM>/<server-generated-name>
 ```
 
 The server should derive the date from `captured_at_millis`, falling back to
@@ -77,9 +77,10 @@ used for very large video libraries.
 
 ## Pi configuration
 
-Set `PISTATS_MEDIA_BACKUP_ROOT` to an existing, service-writable directory in the
-Samba-backed filesystem to enable this endpoint. It returns `404` when the value
-is unset. The following settings are optional:
+Set `PISTATS_MEDIA_BACKUP_ROOT` to an existing, service-writable directory on the
+desired filesystem to enable this endpoint. That directory may also be exported
+by Samba or another file-sharing service, but PiStats does not require one. The
+endpoint returns `404` when the value is unset. The following settings are optional:
 
 - `PISTATS_MEDIA_BACKUP_MAX_BYTES` (default `1073741824`)
 - `PISTATS_MEDIA_BACKUP_DATABASE` (defaults to a state directory beside the root)

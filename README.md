@@ -11,7 +11,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - optional direct binding to the Pi Tailscale interface
 - read-only monitoring endpoints
 - protected Wake-on-LAN endpoint
-- optional idempotent image/video backup into a Samba-backed library
+- optional idempotent image/video backup into a configured filesystem library
 - lightweight Linux collectors
 - Docker-aware service status
 - backup drive detection
@@ -25,6 +25,24 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - `GET /api/stats`
 - `POST /api/wakeonlan/wake`
 - `POST /api/media/backup/items` (when configured)
+
+`GET /api/health` advertises the optional features enabled by that particular
+installation. Clients should not assume Wake-on-LAN, Docker monitoring, backup
+drive monitoring, or media backup is configured.
+
+```json
+{
+  "api_version": 1,
+  "status": "ok",
+  "features": {
+    "stats": true,
+    "wakeonlan": false,
+    "media_backup": false,
+    "backup_drive": false,
+    "docker_services": false
+  }
+}
+```
 
 Example `GET /api/stats` response:
 
@@ -173,7 +191,8 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
 - `PISTATS_BACKUP_MOUNTPOINT`
   - optional expected mountpoint to check first
 - `PISTATS_DEV_MODE`
-  - set to `1` to disable auth for local development only
+  - set to `1` to disable auth for local development only; startup rejects
+    non-loopback binding in this mode
 - `PISTATS_WAKE_MAC`
   - PC MAC address to wake, for example `00:11:22:33:44:55`
   - unset by default; Wake-on-LAN remains disabled until configured
@@ -184,7 +203,8 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
   - UDP port used for Wake-on-LAN
   - default: `9`
 - `PISTATS_MEDIA_BACKUP_ROOT`
-  - enables the media endpoint and names the Samba-backed destination directory
+  - enables the media endpoint and names its destination directory; that
+    directory may optionally be exported by Samba or another file-sharing service
 - `PISTATS_MEDIA_BACKUP_MAX_BYTES`
   - maximum accepted `Content-Length`; default: `1073741824` (1 GiB)
 - `PISTATS_MEDIA_BACKUP_DATABASE`

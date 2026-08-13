@@ -128,6 +128,15 @@ class StatsCollector:
         return results
 
     def read_backup_drive(self) -> dict[str, Any]:
+        if not self.settings.backup_label and not self.settings.backup_mountpoint:
+            return {
+                "connected": False,
+                "mounted": False,
+                "label": None,
+                "device": None,
+                "mountpoint": None,
+            }
+
         lsblk_info = self._read_lsblk()
         preferred = self._find_preferred_backup(lsblk_info)
         mounted = False
@@ -231,12 +240,7 @@ class StatsCollector:
                 if (device.get("label") or "").lower() == self.settings.backup_label.lower():
                     return device
 
-        exfat_devices = [
-            device
-            for device in devices
-            if (device.get("fstype") or "").lower() == "exfat"
-        ]
-        return exfat_devices[0] if exfat_devices else None
+        return None
 
     def _find_mount(self, mountpoint: str) -> dict[str, str] | None:
         output = self._run_command(["findmnt", "-J", mountpoint])

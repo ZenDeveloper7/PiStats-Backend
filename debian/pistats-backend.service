@@ -19,7 +19,13 @@ UMask=0027
 NoNewPrivileges=true
 PrivateDevices=false
 PrivateTmp=true
-ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

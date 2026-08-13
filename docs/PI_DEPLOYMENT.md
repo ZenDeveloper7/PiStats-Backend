@@ -64,7 +64,8 @@ sudo ./install-on-pi.sh \
   --wake-port 9
 ```
 
-To enable phone media backup, pass a destination on the Samba-backed filesystem.
+To enable phone media backup, pass a writable destination directory. It may be
+exported separately through Samba, but that is not required by PiStats.
 The installer creates a missing destination and a private state directory for
 the service user:
 
@@ -124,7 +125,9 @@ The media temporary directory must be outside the shared library but on the same
 filesystem, which permits atomic finalization without exposing partial files.
 The defaults satisfy that rule by creating a root-specific subdirectory under
 `.pistats-media-state` beside the configured media root. The service user needs
-write permission to both locations.
+write permission to both locations. Media, database, and temporary paths may be
+placed under any writable absolute path; the service hardening retains access to
+these installation-specific locations.
 
 `PISTATS_BIND_MODE=tailscale` makes the backend bind to the Pi's `tailscale0` IPv4 address so the Android app can reach it directly over Tailscale.
 
@@ -192,7 +195,8 @@ store it.
 
 - Use `PISTATS_BIND_MODE=tailscale` for Android access over Tailscale.
 - Use `PISTATS_BIND_MODE=localhost` if you want the backend reachable only on the Pi itself.
-- The Android app is Tailscale-only and rejects non-Tailscale base URLs.
+- The Android app accepts HTTPS endpoints and private HTTP routes on localhost,
+  LAN, `.local`, and Tailscale addresses.
 - Do not expose this API publicly on the internet for v1.
 - Keep the token strong and unique.
 - Monitoring endpoints are read-only.
