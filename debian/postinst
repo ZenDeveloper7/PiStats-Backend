@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+if ! getent group pistats >/dev/null; then
+    addgroup --system pistats
+fi
+
+if ! getent passwd pistats >/dev/null; then
+    install -d -o root -g root -m 0750 /var/lib/pistats
+    adduser --system --ingroup pistats --home /var/lib/pistats \
+        --no-create-home pistats
+fi
+
+install -d -o root -g pistats -m 0750 /etc/pistats
+install -d -o pistats -g pistats -m 0750 /var/lib/pistats
+
+if [ ! -f /etc/pistats/pistats.env ]; then
+    token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+    umask 0027
+    cat >/etc/pistats/pistats.env <<EOF
+PISTATS_TOKEN=${token}
+PISTATS_BIND_MODE=localhost
+PISTATS_PORT=8787
+PISTATS_MEDIA_BACKUP_MAX_BYTES=1073741824
+PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=300
+PISTATS_WAKE_BROADCAST=192.168.1.255
+PISTATS_WAKE_PORT=9
+EOF
+    chown root:pistats /etc/pistats/pistats.env
+    chmod 0640 /etc/pistats/pistats.env
+fi
+
+#DEBHELPER#

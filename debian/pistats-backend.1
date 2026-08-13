@@ -1,0 +1,26 @@
+.TH PISTATS-BACKEND 1 "August 2026" "PiStats Backend 1.0.0" "User Commands"
+.SH NAME
+pistats-backend \- run the PiStats Raspberry Pi backend
+.SH SYNOPSIS
+.B pistats-backend
+.SH DESCRIPTION
+.B pistats-backend
+starts the private HTTP API used by PiStats clients. The Debian system service
+loads configuration from
+.IR /etc/pistats/pistats.env .
+.PP
+The default configuration listens only on 127.0.0.1:8787 and requires the
+generated bearer token. Network exposure, monitored Docker services,
+Wake-on-LAN, backup-drive hints, and media storage are opt-in.
+.SH FILES
+.TP
+.I /etc/pistats/pistats.env
+Persistent service configuration and bearer token.
+.TP
+.I /var/lib/pistats
+Private service state directory.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR journalctl (1)
+.PP
+Project documentation: https://github.com/ZenDeveloper7/PiStats-Backend

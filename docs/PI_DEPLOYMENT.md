@@ -6,42 +6,43 @@ Run the PiStats backend as a private monitoring API on your Raspberry Pi, point 
 
 ## Assumptions
 
-- Raspberry Pi user: `zen`
-- Docker services include:
-  - `vaultwarden`
-  - `trilium`
-  - `samba`
-  - `pihole`
-- You want the API kept private
-- Remote access goes through Tailscale
-- Your PC has Wake-on-LAN enabled if you plan to use the Wake PC button
+- You have a non-root Linux account on the Pi with `sudo` access.
+- You want the API kept private. Tailscale is recommended for Android access,
+  but localhost and custom bind addresses are also supported.
+- Docker monitoring, backup-drive detection, media backup, and Wake-on-LAN are optional.
 
 ## Copy the backend to the Pi
 
 From your development machine:
 
 ```bash
-rsync -av ./ zen@pi:/home/zen/pistats-backend/
+rsync -av ./ pi@raspberrypi.local:/tmp/pistats-backend/
 ```
+
+Replace `pi` and `raspberrypi.local` with the target user's account and Pi
+hostname. The installed application location does not depend on that username.
 
 ## Fast install script
 
 Once this backend repo is on the Pi, the quickest install path is:
 
 ```bash
-ssh zen@pi
-cd /home/zen/pistats-backend
-sudo ./install-on-pi.sh
+ssh pi@raspberrypi.local
+cd /tmp/pistats-backend
+sudo ./install-on-pi.sh --bind-mode tailscale
 ```
 
 That script:
 
 - syncs the backend files into the install directory
+- installs to `/opt/pistats` by default
+- runs as the non-root account that invoked `sudo` (or the `--user` value)
 - creates or preserves `.env`
 - generates a strong token automatically if one is not provided
 - writes the `systemd` unit
 - reloads `systemd`
 - enables and starts `pistats.service`
+- restarts the service when upgrading an existing installation
 
 If you need a different port:
 
@@ -53,54 +54,84 @@ If you want Wake-on-LAN configured during install:
 
 ```bash
 sudo ./install-on-pi.sh \
-  --wake-mac '34:5a:60:f9:4b:96' \
+  --bind-mode tailscale \
+  --wake-mac '00:11:22:33:44:55' \
   --wake-broadcast 192.168.1.255 \
   --wake-port 9
 ```
 
+To enable phone media backup, pass a destination on the Samba-backed filesystem.
+The installer creates a missing destination and a private state directory for
+the service user:
+
+```bash
+sudo ./install-on-pi.sh \
+  --bind-mode tailscale \
+  --media-backup-root /srv/media/mobile-backups
+```
+
+Media backup remains disabled, and its endpoint returns `404`, when no root is
+configured.
+
 Show the generated token afterward:
 
 ```bash
-grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
+sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
 ```
 
 Port behavior:
 
 - the installer treats `--port` as the preferred starting port
 - if that port is already in use, it automatically walks upward to the next free port
-- the chosen port is written into `/home/zen/pistats-backend/.env`
+- the chosen port is written into `/opt/pistats/.env`
 - use that same chosen port in the Android app base URL
 
 ## Configure environment
 
-Create an env file on the Pi:
+Edit the installed environment file on the Pi:
 
 ```bash
-cat >/home/zen/pistats-backend/.env <<'EOF'
+sudoedit /opt/pistats/.env
+```
+
+Example configuration:
+
+```dotenv
 PISTATS_TOKEN=replace-with-a-strong-token
 PISTATS_BIND_MODE=tailscale
 PISTATS_PORT=8787
-PISTATS_SERVICES=vaultwarden,trilium,samba,pihole
-PISTATS_BACKUP_LABEL=PiBackup
-PISTATS_WAKE_MAC=34:5a:60:f9:4b:96
+PISTATS_BACKUP_LABEL=MyBackupDrive
+PISTATS_MEDIA_BACKUP_ROOT=/srv/media/mobile-backups
+PISTATS_MEDIA_BACKUP_MAX_BYTES=1073741824
+PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=300
+PISTATS_WAKE_MAC=00:11:22:33:44:55
 PISTATS_WAKE_BROADCAST=192.168.1.255
 PISTATS_WAKE_PORT=9
 # Optional:
+# PISTATS_SERVICES=service-a,service-b
 # PISTATS_TAILSCALE_IP=100.x.y.z
-# PISTATS_BACKUP_MOUNTPOINT=/media/zen/PiBackup
-EOF
+# PISTATS_BACKUP_MOUNTPOINT=/media/pi/MyBackupDrive
+# PISTATS_MEDIA_BACKUP_DATABASE=/srv/media/.pistats-media-state/uploads.sqlite3
+# PISTATS_MEDIA_BACKUP_TEMP_DIR=/srv/media/.pistats-media-state/tmp
+# PISTATS_MEDIA_BACKUP_TEMP_MAX_AGE_SECONDS=86400
 ```
+
+The media temporary directory must be outside the shared library but on the same
+filesystem, which permits atomic finalization without exposing partial files.
+The defaults satisfy that rule by creating a root-specific subdirectory under
+`.pistats-media-state` beside the configured media root. The service user needs
+write permission to both locations.
 
 `PISTATS_BIND_MODE=tailscale` makes the backend bind to the Pi's `tailscale0` IPv4 address so the Android app can reach it directly over Tailscale.
 
 ## Test manually on the Pi
 
 ```bash
-cd /home/zen/pistats-backend
+cd /opt/pistats
 set -a
 source .env
 set +a
-python3 -m pi_backend.server
+PISTATS_BIND_MODE=localhost python3 -m pi_backend.server
 ```
 
 In another shell on the Pi:
@@ -124,10 +155,13 @@ curl -X POST -H "X-Wake-Token: $PISTATS_TOKEN" http://100.x.y.z:8787/api/wakeonl
 Copy the included example service:
 
 ```bash
-sudo cp /home/zen/pistats-backend/pistats.service.example /etc/systemd/system/pistats.service
+sudo cp /opt/pistats/pistats.service.example /etc/systemd/system/pistats.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now pistats.service
 ```
+
+Replace the `YOUR_LINUX_USER` placeholder in the example before starting it.
+Normally the installer is preferable because it writes the unit automatically.
 
 Then check:
 
@@ -158,6 +192,6 @@ store it.
 - Do not expose this API publicly on the internet for v1.
 - Keep the token strong and unique.
 - Monitoring endpoints are read-only.
-- `POST /api/wakeonlan/wake` is the only write-style action and is protected by
-  the same token. Keep it reachable only through Tailscale or another private path.
+- Wake-on-LAN and media backup are the write-style endpoints. Both require the
+  same token; keep them reachable only through Tailscale or another private path.
 - For extra hardening, bind to the Pi Tailscale IP and avoid public port forwarding.

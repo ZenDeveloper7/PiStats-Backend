@@ -1,0 +1,12 @@
+FROM debian:bookworm
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        build-essential \
+        apt-utils \
+        debhelper \
+        devscripts \
+        lintian \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work/PiStats-Backend

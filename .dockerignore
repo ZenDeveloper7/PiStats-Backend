@@ -1,0 +1,8 @@
+.git
+.agents
+.codex
+.env
+__pycache__
+*.pyc
+debian/.debhelper
+debian/pistats-backend

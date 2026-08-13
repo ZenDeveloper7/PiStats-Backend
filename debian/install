@@ -1,0 +1,5 @@
+pi_backend/*.py usr/lib/pistats/pi_backend
+packaging/pistats-backend usr/bin
+.env.example usr/share/pistats
+docs/MEDIA_BACKUP_API.md usr/share/doc/pistats-backend
+docs/PI_DEPLOYMENT.md usr/share/doc/pistats-backend

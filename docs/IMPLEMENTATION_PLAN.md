@@ -25,6 +25,7 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   - `GET /api/health`
   - `GET /api/stats`
   - `POST /api/wakeonlan/wake`
+  - `POST /api/media/backup/items` (optional; configured by `PISTATS_MEDIA_BACKUP_ROOT`)
 
 ## Backend implementation notes
 
@@ -87,16 +88,11 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   "backup_drive": {
     "connected": true,
     "mounted": false,
-    "label": "PiBackup",
+    "label": "MyBackupDrive",
     "device": "/dev/sdb2",
     "mountpoint": null
   },
-  "services": [
-    { "name": "vaultwarden", "status": "up", "detail": "running" },
-    { "name": "trilium", "status": "up", "detail": "running" },
-    { "name": "samba", "status": "up", "detail": "running" },
-    { "name": "pihole", "status": "up", "detail": "running" }
-  ],
+  "services": [],
   "generated_at": "2026-04-10T12:00:00Z"
 }
 ```
@@ -124,5 +120,7 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
    - `PISTATS_WAKE_MAC`
    - `PISTATS_WAKE_BROADCAST`
    - `PISTATS_WAKE_PORT`
+   - `PISTATS_MEDIA_BACKUP_ROOT`
+   - `PISTATS_MEDIA_BACKUP_MAX_BYTES`
 4. Run `python3 -m pi_backend.server`.
 5. If remote access is needed, keep the API private and use Tailscale or another private path.

@@ -1,0 +1,57 @@
+name: Release Debian package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Debian packaging tools
+        run: sudo apt-get update && sudo apt-get install --yes debhelper devscripts lintian
+
+      - name: Verify tag matches changelog
+        if: github.ref_type == 'tag'
+        run: |
+          package_version="$(dpkg-parsechangelog -S Version)"
+          test "${GITHUB_REF_NAME}" = "v${package_version}"
+
+      - name: Build package
+        run: ./packaging/build-deb.sh
+
+      - name: Run lintian
+        run: lintian --fail-on error ../pistats-backend_*.changes
+
+      - name: Copy release artifacts
+        run: |
+          mkdir -p dist
+          cp ../pistats-backend_*.deb ../pistats-backend_*.buildinfo ../pistats-backend_*.changes dist/
+          cd dist
+          sha256sum *.deb >SHA256SUMS
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pistats-debian-package
+          path: dist/
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag
+          fi

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "purge" ]; then
+    rm -f /etc/pistats/pistats.env
+    rmdir /etc/pistats 2>/dev/null || true
+fi
+
+# Keep /var/lib/pistats and any media library on purge. They can contain
+# user-owned backup metadata and must only be removed explicitly.
+
+#DEBHELPER#

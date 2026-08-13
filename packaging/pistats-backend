@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+
+cd /usr/lib/pistats
+exec /usr/bin/python3 -m pi_backend.server "$@"

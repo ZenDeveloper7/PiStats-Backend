@@ -11,6 +11,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - optional direct binding to the Pi Tailscale interface
 - read-only monitoring endpoints
 - protected Wake-on-LAN endpoint
+- optional idempotent image/video backup into a Samba-backed library
 - lightweight Linux collectors
 - Docker-aware service status
 - backup drive detection
@@ -22,6 +23,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - `GET /api/health`
 - `GET /api/stats`
 - `POST /api/wakeonlan/wake`
+- `POST /api/media/backup/items` (when configured)
 
 Example `GET /api/stats` response:
 
@@ -44,16 +46,11 @@ Example `GET /api/stats` response:
   "backup_drive": {
     "connected": true,
     "mounted": false,
-    "label": "PiBackup",
+    "label": "MyBackupDrive",
     "device": "/dev/sdb2",
     "mountpoint": null
   },
-  "services": [
-    { "name": "vaultwarden", "status": "up", "detail": "running" },
-    { "name": "trilium", "status": "up", "detail": "running" },
-    { "name": "samba", "status": "up", "detail": "running" },
-    { "name": "pihole", "status": "up", "detail": "running" }
-  ],
+  "services": [],
   "generated_at": "2026-04-10T12:00:00Z"
 }
 ```
@@ -73,40 +70,50 @@ To expose it over Tailscale:
 ```bash
 PISTATS_TOKEN=change-me \
 PISTATS_BIND_MODE=tailscale \
-PISTATS_WAKE_MAC=34:5a:60:f9:4b:96 \
+PISTATS_WAKE_MAC=00:11:22:33:44:55 \
 python3 -m pi_backend.server
 ```
 
 ## Quick install on a Pi
 
+For packaged releases, use the Debian package or APT repository described in
+[Debian package and APT repository](docs/DEBIAN_PACKAGING.md). The script-based
+installation below remains available for development and manual deployments.
+
 From your development machine:
 
 ```bash
-rsync -av ./ zen@pi:/home/zen/pistats-backend/
+rsync -av ./ pi@raspberrypi.local:/tmp/pistats-backend/
 ```
 
 Then on the Pi:
 
 ```bash
-ssh zen@pi
-cd /home/zen/pistats-backend
-sudo ./install-on-pi.sh
+ssh pi@raspberrypi.local
+cd /tmp/pistats-backend
+sudo ./install-on-pi.sh --bind-mode tailscale
 ```
+
+Replace `pi` and `raspberrypi.local` with that user's account and Pi hostname.
+The installer runs the service as the account that invoked `sudo`; `--user`
+overrides it when needed.
 
 The installer:
 
 - syncs files into the install directory
+- uses `/opt/pistats` by default, independent of the user's home directory
 - creates or preserves `.env`
 - generates a strong token automatically if one is not provided
 - writes the `systemd` unit
 - enables and starts `pistats.service`
 - automatically selects a free port if the requested port is busy
+- restarts an existing service after an upgrade
 
 For Wake-on-LAN, pass the PC MAC address and LAN broadcast address:
 
 ```bash
 sudo ./install-on-pi.sh \
-  --wake-mac '34:5a:60:f9:4b:96' \
+  --wake-mac '00:11:22:33:44:55' \
   --wake-broadcast 192.168.1.255 \
   --wake-port 9
 ```
@@ -114,7 +121,7 @@ sudo ./install-on-pi.sh \
 Show the generated token afterward:
 
 ```bash
-grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
+sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
 ```
 
 ## Environment variables
@@ -132,8 +139,8 @@ grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
 - `PISTATS_PORT`
   - default: `8787`
 - `PISTATS_SERVICES`
-  - comma-separated Docker container names
-  - default: `vaultwarden,trilium,samba,pihole`
+  - optional comma-separated Docker container names selected by the installer
+  - unset by default; the API returns an empty `services` array
 - `PISTATS_BACKUP_LABEL`
   - optional preferred filesystem label
 - `PISTATS_BACKUP_MOUNTPOINT`
@@ -141,13 +148,26 @@ grep '^PISTATS_TOKEN=' /home/zen/pistats-backend/.env
 - `PISTATS_DEV_MODE`
   - set to `1` to disable auth for local development only
 - `PISTATS_WAKE_MAC`
-  - PC MAC address to wake, for example `34:5a:60:f9:4b:96`
+  - PC MAC address to wake, for example `00:11:22:33:44:55`
+  - unset by default; Wake-on-LAN remains disabled until configured
 - `PISTATS_WAKE_BROADCAST`
   - LAN broadcast address used for the magic packet
   - default: `192.168.1.255`
 - `PISTATS_WAKE_PORT`
   - UDP port used for Wake-on-LAN
   - default: `9`
+- `PISTATS_MEDIA_BACKUP_ROOT`
+  - enables the media endpoint and names the Samba-backed destination directory
+- `PISTATS_MEDIA_BACKUP_MAX_BYTES`
+  - maximum accepted `Content-Length`; default: `1073741824` (1 GiB)
+- `PISTATS_MEDIA_BACKUP_DATABASE`
+  - optional SQLite path; defaults outside the library beside its root
+- `PISTATS_MEDIA_BACKUP_TEMP_DIR`
+  - optional incomplete-upload directory; must be outside the library and on the same filesystem
+- `PISTATS_MEDIA_BACKUP_TEMP_MAX_AGE_SECONDS`
+  - incomplete upload retention; default: `86400`
+- `PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS`
+  - maximum pause while reading an upload body; default: `300`
 
 ## Wake-on-LAN
 
@@ -188,7 +208,9 @@ Examples:
 sudo ./install-on-pi.sh
 sudo ./install-on-pi.sh --port 8788
 sudo ./install-on-pi.sh --bind-mode localhost
-sudo ./install-on-pi.sh --wake-mac '34:5a:60:f9:4b:96' --wake-broadcast 192.168.1.255
+sudo ./install-on-pi.sh --bind-mode custom --host 192.168.1.20
+sudo ./install-on-pi.sh --wake-mac '00:11:22:33:44:55' --wake-broadcast 192.168.1.255
+sudo ./install-on-pi.sh --media-backup-root /srv/media/mobile-backups
 sudo ./install-on-pi.sh --force-env
 ```
 
@@ -202,6 +224,8 @@ Port behavior:
 
 - [Pi Deployment Guide](docs/PI_DEPLOYMENT.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [Media Backup API](docs/MEDIA_BACKUP_API.md)
+- [Debian package and APT repository](docs/DEBIAN_PACKAGING.md)
 - [systemd example](pistats.service.example)
 - [sample env file](.env.example)
 - [Privacy Policy](privacy-policy.html)

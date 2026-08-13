@@ -2,8 +2,11 @@
 set -euo pipefail
 
 APP_NAME="pistats"
-DEFAULT_USER="zen"
-DEFAULT_INSTALL_DIR="/home/${DEFAULT_USER}/pistats-backend"
+DEFAULT_USER="${SUDO_USER:-}"
+if [[ "${DEFAULT_USER}" == "root" ]]; then
+  DEFAULT_USER=""
+fi
+DEFAULT_INSTALL_DIR="/opt/pistats"
 
 usage() {
   cat <<'EOF'
@@ -11,25 +14,30 @@ Usage:
   ./install-on-pi.sh [options]
 
 Options:
-  --user USER              Linux user that will run the service. Default: zen
-  --install-dir PATH       Install directory on the Pi. Default: /home/zen/pistats-backend
+  --user USER              Linux user that runs the service. Default: user invoking sudo
+  --install-dir PATH       Install directory on the Pi. Default: /opt/pistats
   --service-name NAME      systemd service name without .service. Default: pistats
   --port PORT              Preferred starting port. Installer will move upward until it finds a free port. Default: 8787
-  --bind-mode MODE         One of: localhost, tailscale, custom. Default: tailscale
+  --bind-mode MODE         One of: localhost, tailscale, custom. Default: localhost
+  --host ADDRESS           Bind address used with --bind-mode custom
   --tailscale-ip IP        Optional explicit Tailscale IP written to .env
-  --backup-label LABEL     Backup label written to .env. Default: PiBackup
-  --services CSV           Docker services list written to .env
-  --wake-mac MAC           PC MAC address for Wake-on-LAN. Default: 34:5a:60:f9:4b:96
+  --backup-label LABEL     Optional preferred backup-drive filesystem label
+  --media-backup-root PATH Enable media backup and store files under PATH
+  --media-max-bytes BYTES  Maximum media upload size. Default: 1073741824
+  --media-read-timeout SECONDS
+                           Maximum pause while reading an upload. Default: 300
+  --services CSV           Optional comma-separated Docker container names
+  --wake-mac MAC           Optional PC MAC address enabling Wake-on-LAN
   --wake-broadcast IP      LAN broadcast address for Wake-on-LAN. Default: 192.168.1.255
   --wake-port PORT         UDP port for Wake-on-LAN. Default: 9
   --token TOKEN            Optional auth token. If omitted, installer generates one.
-  --force-env              Overwrite an existing .env file
+  --force-env              Replace .env; generates a new token unless --token is passed
   --no-start               Install files but do not enable/start the service
   -h, --help               Show this help
 
 Examples:
   sudo ./install-on-pi.sh
-  sudo ./install-on-pi.sh --user zen --bind-mode tailscale --port 8788
+  sudo ./install-on-pi.sh --user pi --bind-mode tailscale --port 8788
 EOF
 }
 
@@ -93,25 +101,41 @@ SERVICE_NAME="${APP_NAME}"
 SERVICE_USER="${DEFAULT_USER}"
 INSTALL_DIR="${DEFAULT_INSTALL_DIR}"
 PORT="8787"
-BIND_MODE="tailscale"
+BIND_MODE="localhost"
+HOST=""
 TAILSCALE_IP=""
-BACKUP_LABEL="PiBackup"
-SERVICES_CSV="vaultwarden,trilium,samba,pihole"
-WAKE_MAC="34:5a:60:f9:4b:96"
+BACKUP_LABEL=""
+MEDIA_BACKUP_ROOT=""
+MEDIA_MAX_BYTES="1073741824"
+MEDIA_READ_TIMEOUT="300"
+SERVICES_CSV=""
+WAKE_MAC=""
 WAKE_BROADCAST="192.168.1.255"
 WAKE_PORT="9"
 TOKEN=""
 FORCE_ENV="0"
 START_SERVICE="1"
+USER_EXPLICIT="0"
+INSTALL_DIR_EXPLICIT="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --user|--install-dir|--service-name|--port|--bind-mode|--host|--tailscale-ip|--backup-label|--media-backup-root|--media-max-bytes|--media-read-timeout|--services|--wake-mac|--wake-broadcast|--wake-port|--token)
+      if [[ $# -lt 2 ]]; then
+        echo "$1 requires a value" >&2
+        exit 1
+      fi
+      ;;
+  esac
+  case "$1" in
     --user)
       SERVICE_USER="$2"
+      USER_EXPLICIT="1"
       shift 2
       ;;
     --install-dir)
       INSTALL_DIR="$2"
+      INSTALL_DIR_EXPLICIT="1"
       shift 2
       ;;
     --service-name)
@@ -126,12 +150,28 @@ while [[ $# -gt 0 ]]; do
       BIND_MODE="$2"
       shift 2
       ;;
+    --host)
+      HOST="$2"
+      shift 2
+      ;;
     --tailscale-ip)
       TAILSCALE_IP="$2"
       shift 2
       ;;
     --backup-label)
       BACKUP_LABEL="$2"
+      shift 2
+      ;;
+    --media-backup-root)
+      MEDIA_BACKUP_ROOT="$2"
+      shift 2
+      ;;
+    --media-max-bytes)
+      MEDIA_MAX_BYTES="$2"
+      shift 2
+      ;;
+    --media-read-timeout)
+      MEDIA_READ_TIMEOUT="$2"
       shift 2
       ;;
     --services)
@@ -174,10 +214,29 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+require_root
+
 SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+if [[ -f "${SERVICE_PATH}" ]]; then
+  if [[ "${USER_EXPLICIT}" != "1" ]]; then
+    installed_user="$(sed -n 's/^User=//p' "${SERVICE_PATH}" | tail -n 1)"
+    if [[ -n "${installed_user}" ]]; then
+      SERVICE_USER="${installed_user}"
+    fi
+  fi
+  if [[ "${INSTALL_DIR_EXPLICIT}" != "1" ]]; then
+    installed_dir="$(sed -n 's/^WorkingDirectory=//p' "${SERVICE_PATH}" | tail -n 1)"
+    if [[ -n "${installed_dir}" ]]; then
+      INSTALL_DIR="${installed_dir}"
+    fi
+  fi
+fi
 ENV_PATH="${INSTALL_DIR}/.env"
 
-require_root
+if [[ -z "${SERVICE_USER}" ]]; then
+  echo "Could not determine the service user. Pass --user USER." >&2
+  exit 1
+fi
 
 if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
   echo "User ${SERVICE_USER} does not exist." >&2
@@ -194,8 +253,35 @@ if ! command_exists python3; then
   exit 1
 fi
 
+if ! command_exists rsync; then
+  echo "rsync is required but not installed." >&2
+  exit 1
+fi
+
+if ! command_exists realpath; then
+  echo "realpath is required but not installed (normally provided by coreutils)." >&2
+  exit 1
+fi
+
+if [[ "${INSTALL_DIR}" != /* || "${INSTALL_DIR}" == "/" ]]; then
+  echo "--install-dir must be an absolute path other than /" >&2
+  exit 1
+fi
+INSTALL_DIR="$(realpath -m -- "${INSTALL_DIR}")"
+ENV_PATH="${INSTALL_DIR}/.env"
+
+if ! [[ "${SERVICE_NAME}" =~ ^[A-Za-z0-9_.@-]+$ ]]; then
+  echo "--service-name contains unsupported characters" >&2
+  exit 1
+fi
+
 if [[ "${BIND_MODE}" != "localhost" && "${BIND_MODE}" != "tailscale" && "${BIND_MODE}" != "custom" ]]; then
   echo "--bind-mode must be one of: localhost, tailscale, custom" >&2
+  exit 1
+fi
+
+if [[ "${BIND_MODE}" == "custom" && -z "${HOST}" ]]; then
+  echo "--bind-mode custom requires --host ADDRESS" >&2
   exit 1
 fi
 
@@ -209,8 +295,47 @@ if ! [[ "${WAKE_PORT}" =~ ^[0-9]+$ ]] || [[ "${WAKE_PORT}" -lt 1 ]] || [[ "${WAK
   exit 1
 fi
 
+if ! [[ "${MEDIA_MAX_BYTES}" =~ ^[0-9]+$ ]] || [[ "${MEDIA_MAX_BYTES}" -lt 1 ]]; then
+  echo "--media-max-bytes must be a positive integer" >&2
+  exit 1
+fi
+
+if ! [[ "${MEDIA_READ_TIMEOUT}" =~ ^[0-9]+$ ]] || [[ "${MEDIA_READ_TIMEOUT}" -lt 1 ]]; then
+  echo "--media-read-timeout must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ -n "${MEDIA_BACKUP_ROOT}" && "${MEDIA_BACKUP_ROOT}" != /* ]]; then
+  echo "--media-backup-root must be an absolute path" >&2
+  exit 1
+fi
+
+if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
+  MEDIA_BACKUP_ROOT="$(realpath -m -- "${MEDIA_BACKUP_ROOT}")"
+  case "${MEDIA_BACKUP_ROOT%/}/" in
+    "${INSTALL_DIR%/}/"*)
+      echo "--media-backup-root must be outside --install-dir" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 REQUESTED_PORT="${PORT}"
-PORT="$(find_available_port "${REQUESTED_PORT}")"
+PRESERVING_ENV="0"
+if [[ -f "${ENV_PATH}" && "${FORCE_ENV}" != "1" ]]; then
+  PRESERVING_ENV="1"
+  configured_bind_mode="$(sed -n 's/^PISTATS_BIND_MODE=//p' "${ENV_PATH}" | tail -n 1)"
+  if [[ -n "${configured_bind_mode}" ]]; then
+    BIND_MODE="${configured_bind_mode}"
+  fi
+  configured_port="$(sed -n 's/^PISTATS_PORT=//p' "${ENV_PATH}" | tail -n 1)"
+  if [[ "${configured_port}" =~ ^[0-9]+$ ]] && \
+     [[ "${configured_port}" -ge 1 ]] && [[ "${configured_port}" -le 65535 ]]; then
+    PORT="${configured_port}"
+  fi
+else
+  PORT="$(find_available_port "${REQUESTED_PORT}")"
+fi
 
 echo "Installing PiStats backend"
 echo "  user: ${SERVICE_USER}"
@@ -220,17 +345,61 @@ echo "  bind mode: ${BIND_MODE}"
 echo "  requested port: ${REQUESTED_PORT}"
 echo "  selected port: ${PORT}"
 
-if [[ "${PORT}" != "${REQUESTED_PORT}" ]]; then
+if [[ "${PRESERVING_ENV}" == "1" && "${PORT}" != "${REQUESTED_PORT}" ]]; then
+  echo "  note: keeping port ${PORT} from the existing .env"
+elif [[ "${PORT}" != "${REQUESTED_PORT}" ]]; then
   echo "  note: ${REQUESTED_PORT} was busy, so the installer chose ${PORT}"
 fi
 
 mkdir -p "${INSTALL_DIR}"
-rsync -a --delete \
-  --exclude '__pycache__/' \
-  --exclude '*.pyc' \
-  ./ "${INSTALL_DIR}/"
+source_dir="$(pwd -P)"
+install_dir_resolved="$(cd "${INSTALL_DIR}" && pwd -P)"
+case "${source_dir}/" in
+  "${install_dir_resolved}/"*)
+    if [[ "${source_dir}" != "${install_dir_resolved}" ]]; then
+      echo "--install-dir cannot be a parent of the source repository" >&2
+      exit 1
+    fi
+    ;;
+esac
+if [[ "${source_dir}" != "${install_dir_resolved}" ]]; then
+  rsync -a --delete \
+    --exclude '.env' \
+    --exclude '.git/' \
+    --exclude '.agents/' \
+    --exclude '.codex/' \
+    --exclude '__pycache__/' \
+    --exclude '*.pyc' \
+    ./ "${INSTALL_DIR}/"
+else
+  echo "Source is already ${INSTALL_DIR}; skipping file synchronization."
+fi
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}"
 chmod +x "${INSTALL_DIR}/install-on-pi.sh"
+
+if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
+  if ! command_exists runuser; then
+    echo "Media backup setup requires runuser (normally provided by util-linux)." >&2
+    exit 1
+  fi
+  service_group="$(id -gn "${SERVICE_USER}")"
+  if [[ ! -e "${MEDIA_BACKUP_ROOT}" ]]; then
+    install -d -o "${SERVICE_USER}" -g "${service_group}" -m 0750 "${MEDIA_BACKUP_ROOT}"
+  elif [[ ! -d "${MEDIA_BACKUP_ROOT}" ]]; then
+    echo "Media backup root is not a directory: ${MEDIA_BACKUP_ROOT}" >&2
+    exit 1
+  fi
+
+  if ! runuser -u "${SERVICE_USER}" -- test -w "${MEDIA_BACKUP_ROOT}"; then
+    echo "User ${SERVICE_USER} cannot write to ${MEDIA_BACKUP_ROOT}." >&2
+    echo "Adjust its owner/group permissions and run the installer again." >&2
+    exit 1
+  fi
+
+  media_state_dir="$(dirname "${MEDIA_BACKUP_ROOT}")/.pistats-media-state"
+  install -d -o "${SERVICE_USER}" -g "${service_group}" -m 0750 \
+    "${media_state_dir}"
+fi
 
 if [[ ! -f "${ENV_PATH}" || "${FORCE_ENV}" == "1" ]]; then
   generated_token="0"
@@ -247,12 +416,36 @@ PY
 PISTATS_TOKEN=${TOKEN}
 PISTATS_BIND_MODE=${BIND_MODE}
 PISTATS_PORT=${PORT}
-PISTATS_SERVICES=${SERVICES_CSV}
 PISTATS_BACKUP_LABEL=${BACKUP_LABEL}
-PISTATS_WAKE_MAC=${WAKE_MAC}
+PISTATS_MEDIA_BACKUP_MAX_BYTES=${MEDIA_MAX_BYTES}
+PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=${MEDIA_READ_TIMEOUT}
 PISTATS_WAKE_BROADCAST=${WAKE_BROADCAST}
 PISTATS_WAKE_PORT=${WAKE_PORT}
 EOF
+
+  if [[ -n "${SERVICES_CSV}" ]]; then
+    cat >>"${ENV_PATH}" <<EOF
+PISTATS_SERVICES=${SERVICES_CSV}
+EOF
+  fi
+
+  if [[ -n "${HOST}" ]]; then
+    cat >>"${ENV_PATH}" <<EOF
+PISTATS_HOST=${HOST}
+EOF
+  fi
+
+  if [[ -n "${WAKE_MAC}" ]]; then
+    cat >>"${ENV_PATH}" <<EOF
+PISTATS_WAKE_MAC=${WAKE_MAC}
+EOF
+  fi
+
+  if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
+    cat >>"${ENV_PATH}" <<EOF
+PISTATS_MEDIA_BACKUP_ROOT=${MEDIA_BACKUP_ROOT}
+EOF
+  fi
 
   if [[ -n "${TAILSCALE_IP}" ]]; then
     cat >>"${ENV_PATH}" <<EOF
@@ -265,6 +458,11 @@ EOF
   echo "Wrote ${ENV_PATH}"
 else
   echo "Keeping existing ${ENV_PATH}"
+  echo "Configuration flags do not overwrite an existing .env; edit it directly or use --force-env."
+  if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
+    echo "Note: --media-backup-root does not modify an existing .env."
+    echo "Set PISTATS_MEDIA_BACKUP_ROOT=${MEDIA_BACKUP_ROOT} in ${ENV_PATH}, then restart the service."
+  fi
 fi
 
 cat >"${SERVICE_PATH}" <<EOF
@@ -290,7 +488,8 @@ chmod 644 "${SERVICE_PATH}"
 systemctl daemon-reload
 
 if [[ "${START_SERVICE}" == "1" ]]; then
-  systemctl enable --now "${SERVICE_NAME}.service"
+  systemctl enable "${SERVICE_NAME}.service"
+  systemctl restart "${SERVICE_NAME}.service"
   systemctl status "${SERVICE_NAME}.service" --no-pager || true
 else
   echo "Installed service unit at ${SERVICE_PATH} without starting it."
@@ -301,7 +500,9 @@ echo "PiStats install complete."
 echo "Config file: ${ENV_PATH}"
 echo "Service: ${SERVICE_NAME}.service"
 echo "Port: ${PORT}"
-if [[ "${generated_token:-0}" == "1" ]]; then
+if [[ "${PRESERVING_ENV}" == "1" ]]; then
+  echo "Token: keeping the existing value in ${ENV_PATH}"
+elif [[ "${generated_token:-0}" == "1" ]]; then
   echo "Token: generated and written to ${ENV_PATH}"
 else
   echo "Token: using the value provided to --token"

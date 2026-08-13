@@ -1,0 +1,25 @@
+[Unit]
+Description=PiStats Raspberry Pi backend
+Documentation=https://github.com/ZenDeveloper7/PiStats-Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pistats
+Group=pistats
+WorkingDirectory=/usr/lib/pistats
+EnvironmentFile=/etc/pistats/pistats.env
+ExecStart=/usr/bin/pistats-backend
+Restart=on-failure
+RestartSec=5
+StateDirectory=pistats
+StateDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=true
+PrivateDevices=false
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+pistats-backend (1.0.0) unstable; urgency=medium
+
+  * Initial Debian package release.
+
+ -- ZenDeveloper <zenit027@proton.me>  Thu, 13 Aug 2026 18:00:00 +0530
