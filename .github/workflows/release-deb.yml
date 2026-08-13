@@ -29,7 +29,7 @@ jobs:
         run: ./packaging/build-deb.sh
 
       - name: Run lintian
-        run: lintian --fail-on error ../pistats-backend_*.changes
+        run: lintian --profile debian --fail-on error ../pistats-backend_*.changes
 
       - name: Copy release artifacts
         run: |
