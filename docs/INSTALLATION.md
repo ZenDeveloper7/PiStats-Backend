@@ -124,13 +124,9 @@ sudo journalctl -u pistats-backend -n 100 --no-pager
 
 ## Optional Docker monitoring
 
-Select containers explicitly in `/etc/pistats/pistats.env`:
-
-```dotenv
-PISTATS_SERVICES=service-a,service-b
-```
-
-Allow the dedicated service account to inspect Docker, then restart it:
+Allow the dedicated service account to inspect Docker, then restart it. The
+Android app will discover the containers and let each user select which ones to
+monitor:
 
 ```bash
 sudo usermod -aG docker pistats
@@ -139,6 +135,9 @@ sudo systemctl restart pistats-backend
 
 Membership in the Docker group is effectively root-level access. Enable it only
 when Docker monitoring is required.
+
+`PISTATS_SERVICES` remains available only as a compatibility fallback for older
+clients. New installations should make monitoring selections in the app.
 
 ## Optional Wake-on-LAN
 
@@ -243,7 +242,8 @@ Do not run it alongside the Debian package on the same port. See the
   the address used by the client.
 - Tailscale startup failure: ensure `tailscale0` exists or configure
   `PISTATS_TAILSCALE_IP` explicitly.
-- Empty service list: configure `PISTATS_SERVICES`; no containers are predefined.
+- Empty service list: confirm Docker has containers and the `pistats` account is
+  in the Docker group, then retry discovery in the app.
 - Media endpoint returns `404`: configure `PISTATS_MEDIA_BACKUP_ROOT` and restart.
 - Media startup failure: ensure the root exists, is writable by `pistats`, and
   its state/temp paths are on the same filesystem.

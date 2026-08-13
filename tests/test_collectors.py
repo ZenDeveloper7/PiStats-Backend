@@ -24,6 +24,36 @@ def settings() -> Settings:
 
 
 class CollectorTests(unittest.TestCase):
+    def test_discovers_and_normalizes_docker_containers(self) -> None:
+        collector = StatsCollector(settings())
+        output = "\n".join(
+            [
+                '{"Names":"samba","State":"running","Status":"Up 2 hours"}',
+                '{"Names":"photos","State":"exited","Status":"Exited (0)"}',
+            ]
+        )
+        with patch.object(collector, "_run_command", return_value=output):
+            services = collector.list_services()
+
+        self.assertEqual(
+            services,
+            [
+                {"name": "photos", "status": "down", "detail": "Exited (0)"},
+                {"name": "samba", "status": "up", "detail": "Up 2 hours"},
+            ],
+        )
+
+    def test_returns_only_app_selected_services(self) -> None:
+        collector = StatsCollector(settings())
+        available = [
+            {"name": "photos", "status": "up", "detail": "Up"},
+            {"name": "samba", "status": "up", "detail": "Up"},
+        ]
+        with patch.object(collector, "list_services", return_value=available):
+            services = collector.read_services(("samba", "missing"))
+
+        self.assertEqual(services, [available[1]])
+
     def test_unconfigured_backup_drive_does_not_probe_or_select_disks(self) -> None:
         collector = StatsCollector(settings())
         with patch.object(collector, "_read_lsblk") as read_lsblk:

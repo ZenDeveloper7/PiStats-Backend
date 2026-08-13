@@ -22,6 +22,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 ## API endpoints
 
 - `GET /api/health`
+- `GET /api/services`
 - `GET /api/stats`
 - `POST /api/wakeonlan/wake`
 - `POST /api/media/backup/items` (when configured)
@@ -39,10 +40,18 @@ drive monitoring, or media backup is configured.
     "wakeonlan": false,
     "media_backup": false,
     "backup_drive": false,
-    "docker_services": false
+    "docker_services": true,
+    "service_selection": true
   }
 }
 ```
+
+`GET /api/services` returns the Docker containers visible to the backend. The
+Android app persists the user's monitoring choices and sends them in the
+optional `services` query parameter, for example
+`GET /api/stats?services=samba,immich_server`. An empty parameter explicitly
+selects no services. Omitting it retains compatibility with the legacy
+`PISTATS_SERVICES` setting.
 
 Example `GET /api/stats` response:
 
@@ -184,8 +193,8 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
 - `PISTATS_PORT`
   - default: `8787`
 - `PISTATS_SERVICES`
-  - optional comma-separated Docker container names selected by the installer
-  - unset by default; the API returns an empty `services` array
+  - deprecated compatibility fallback for clients that do not send a selection
+  - current Android clients discover and select containers in the app
 - `PISTATS_BACKUP_LABEL`
   - optional preferred filesystem label
 - `PISTATS_BACKUP_MOUNTPOINT`

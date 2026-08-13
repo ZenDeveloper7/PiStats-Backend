@@ -23,6 +23,7 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Wake auth alias: `X-Wake-Token: <token>`
 - Endpoints:
   - `GET /api/health`
+  - `GET /api/services`
   - `GET /api/stats`
   - `POST /api/wakeonlan/wake`
   - `POST /api/media/backup/items` (optional; configured by `PISTATS_MEDIA_BACKUP_ROOT`)
@@ -35,7 +36,7 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Uptime: `/proc/uptime`
 - Load average: `/proc/loadavg`
 - Temperature: `/sys/class/thermal/*`
-- Docker service status: `docker inspect` when Docker is available
+- Docker service discovery/status: one `docker ps -a` query when Docker is available
 - Backup drive state: `lsblk` + `findmnt`, with optional mountpoint/label hints from environment
 - Wake-on-LAN: Python UDP magic packet sent to `PISTATS_WAKE_BROADCAST:PISTATS_WAKE_PORT`
   for `PISTATS_WAKE_MAC`; no third-party wake dependency is required
@@ -45,12 +46,12 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Single `:app` module for quick delivery
 - Kotlin + Jetpack Compose
 - Ktor client + Kotlinx Serialization
-- DataStore for `baseUrl` and `authToken`
+- DataStore for `baseUrl`, encrypted `authToken`, and selected services
 - Koin for DI
 - Navigation with two screens:
   - Dashboard
   - Settings
-- Polling every 5 seconds while dashboard is visible/configured
+- Polling every 15 seconds while dashboard is visible/configured
 - Dashboard includes a Wake PC action that posts to `/api/wakeonlan/wake`
 
 ## Stable response contract
@@ -65,7 +66,8 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
     "wakeonlan": false,
     "media_backup": false,
     "backup_drive": false,
-    "docker_services": false
+    "docker_services": true,
+    "service_selection": true
   }
 }
 ```
@@ -117,7 +119,6 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 3. Optionally set:
    - `PISTATS_HOST`
    - `PISTATS_PORT`
-   - `PISTATS_SERVICES`
    - `PISTATS_BACKUP_LABEL`
    - `PISTATS_BACKUP_MOUNTPOINT`
    - `PISTATS_WAKE_MAC`

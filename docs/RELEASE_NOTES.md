@@ -18,7 +18,7 @@ generic installation across Raspberry Pi users rather than one predefined host.
 - Added automated tag builds, tests, Lintian validation, checksums, GitHub
   Release assets, and APT deployment.
 - Generalized the source installer so usernames, install paths, ports, network
-  modes, services, storage, and Wake-on-LAN settings are installation-specific.
+  modes, storage, and Wake-on-LAN settings are installation-specific.
 
 ### Media backup API
 

@@ -27,7 +27,10 @@ class StatsCollector:
         self.settings = settings
         self._last_cpu_sample: CpuSample | None = None
 
-    def collect_all(self) -> dict[str, Any]:
+    def collect_all(
+        self,
+        service_names: tuple[str, ...] | None = None,
+    ) -> dict[str, Any]:
         return {
             "host": socket.gethostname(),
             "uptime_seconds": self.read_uptime_seconds(),
@@ -37,7 +40,7 @@ class StatsCollector:
             "temperature_c": self.read_temperature_c(),
             "load_average": self.read_load_average(),
             "backup_drive": self.read_backup_drive(),
-            "services": self.read_services(),
+            "services": self.read_services(service_names),
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
 
@@ -114,18 +117,41 @@ class StatsCollector:
         except (FileNotFoundError, ValueError, IndexError):
             return [0.0, 0.0, 0.0]
 
-    def read_services(self) -> list[dict[str, str]]:
-        results: list[dict[str, str]] = []
-        for name in self.settings.services:
-            status, detail = self._read_docker_service_status(name)
-            results.append(
+    def read_services(
+        self,
+        service_names: tuple[str, ...] | None = None,
+    ) -> list[dict[str, str]]:
+        available = self.list_services()
+        selected = self.settings.services if service_names is None else service_names
+        by_name = {service["name"]: service for service in available}
+        return [by_name[name] for name in selected if name in by_name]
+
+    def list_services(self) -> list[dict[str, str]]:
+        output = self._run_command(
+            ["docker", "ps", "-a", "--format", "{{json .}}"]
+        )
+        if output is None:
+            return []
+
+        services: list[dict[str, str]] = []
+        for line in output.splitlines():
+            try:
+                container = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            name = str(container.get("Names", "")).strip()
+            if not name:
+                continue
+            state = str(container.get("State", "")).strip().lower()
+            detail = str(container.get("Status", "")).strip() or state or "unknown"
+            services.append(
                 {
                     "name": name,
-                    "status": status,
+                    "status": self._normalize_docker_state(state),
                     "detail": detail,
                 }
             )
-        return results
+        return sorted(services, key=lambda service: service["name"].lower())
 
     def read_backup_drive(self) -> dict[str, Any]:
         if not self.settings.backup_label and not self.settings.backup_mountpoint:
@@ -197,6 +223,17 @@ class StatsCollector:
             "paused": "degraded",
         }.get(status, status or "unknown")
         return normalized, status or "unknown"
+
+    @staticmethod
+    def _normalize_docker_state(state: str) -> str:
+        return {
+            "running": "up",
+            "exited": "down",
+            "dead": "down",
+            "created": "starting",
+            "restarting": "starting",
+            "paused": "degraded",
+        }.get(state, state or "unknown")
 
     def _read_lsblk(self) -> list[dict[str, Any]]:
         output = self._run_command(

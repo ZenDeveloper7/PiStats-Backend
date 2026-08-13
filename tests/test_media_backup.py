@@ -9,10 +9,12 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import closing
 from dataclasses import replace
 from http.server import ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 from pi_backend.config import Settings
 from pi_backend.media_backup import (
@@ -162,13 +164,13 @@ class MediaBackupApiTests(unittest.TestCase):
         database = next(
             (self.base / ".pistats-media-state").glob("*/uploads.sqlite3")
         )
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             row = connection.execute(
                 "SELECT state, size_bytes FROM media_uploads WHERE idempotency_key = 'key-1'"
             ).fetchone()
         self.assertEqual(row, ("completed", 9))
 
-    def test_health_advertises_only_configured_optional_features(self) -> None:
+    def test_health_advertises_service_discovery(self) -> None:
         with RunningServer(self.settings) as server:
             status, body = server.get("/api/health")
 
@@ -181,9 +183,34 @@ class MediaBackupApiTests(unittest.TestCase):
                 "wakeonlan": False,
                 "media_backup": True,
                 "backup_drive": False,
-                "docker_services": False,
+                "docker_services": True,
+                "service_selection": True,
             },
         )
+
+    def test_lists_services_and_filters_stats_using_app_selection(self) -> None:
+        available = [
+            {"name": "photos", "status": "up", "detail": "Up 2 hours"},
+            {"name": "samba", "status": "down", "detail": "Exited (0)"},
+        ]
+        with patch("pi_backend.collectors.StatsCollector.list_services", return_value=available):
+            with RunningServer(self.settings) as server:
+                status, body = server.get("/api/services")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body), {"services": available})
+
+                status, body = server.get("/api/stats?services=samba")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["services"], [available[1]])
+
+                status, body = server.get("/api/stats?services=")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["services"], [])
+
+    def test_rejects_invalid_service_selection(self) -> None:
+        with RunningServer(self.settings) as server:
+            status, _ = server.get("/api/stats?services=bad%20name")
+        self.assertEqual(status, 400)
 
     def test_uses_canonical_extension_when_name_does_not_match_mime(self) -> None:
         with RunningServer(self.settings) as server:
@@ -244,7 +271,7 @@ class MediaBackupApiTests(unittest.TestCase):
 
         temp_dir = service.temp_dir
         self.assertEqual(list(temp_dir.glob("*.upload")), [])
-        with sqlite3.connect(service.database) as connection:
+        with closing(sqlite3.connect(service.database)) as connection:
             count = connection.execute(
                 "SELECT COUNT(*) FROM media_uploads WHERE idempotency_key = 'short-body'"
             ).fetchone()[0]
@@ -335,14 +362,14 @@ class MediaBackupApiTests(unittest.TestCase):
             temp_path = next(service.temp_dir.glob("*.upload"))
             old = int(time.time()) - 10
             os.utime(temp_path, (old, old))
-            with sqlite3.connect(service.database) as connection:
+            with closing(sqlite3.connect(service.database)) as connection:
                 connection.execute(
                     "UPDATE media_uploads SET created_at = ? WHERE idempotency_key = ?",
                     (old, upload.idempotency_key),
                 )
             service.cleanup_stale_uploads()
             self.assertTrue(temp_path.exists())
-            with sqlite3.connect(service.database) as connection:
+            with closing(sqlite3.connect(service.database)) as connection:
                 state = connection.execute(
                     "SELECT state FROM media_uploads WHERE idempotency_key = ?",
                     (upload.idempotency_key,),

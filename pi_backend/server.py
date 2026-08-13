@@ -36,7 +36,9 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                 )
                 return
 
-            if self.path == "/api/health":
+            request = urlsplit(self.path)
+
+            if request.path == "/api/health":
                 self._send_json(
                     HTTPStatus.OK,
                     {
@@ -49,14 +51,33 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                             "backup_drive": bool(
                                 settings.backup_label or settings.backup_mountpoint
                             ),
-                            "docker_services": bool(settings.services),
+                            "docker_services": True,
+                            "service_selection": True,
                         },
                     },
                 )
                 return
 
-            if self.path == "/api/stats":
-                self._send_json(HTTPStatus.OK, collector.collect_all())
+            if request.path == "/api/services":
+                self._send_json(
+                    HTTPStatus.OK,
+                    {"services": collector.list_services()},
+                )
+                return
+
+            if request.path == "/api/stats":
+                try:
+                    selected_services = _parse_service_selection(request.query)
+                except ValueError:
+                    self._send_json(
+                        HTTPStatus.BAD_REQUEST,
+                        {"error": "invalid_services"},
+                    )
+                    return
+                self._send_json(
+                    HTTPStatus.OK,
+                    collector.collect_all(selected_services),
+                )
                 return
 
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
@@ -268,6 +289,25 @@ def _parse_nonnegative_int(value: str, name: str) -> int:
     if parsed < 0:
         raise MediaBackupError(400, f"invalid_{name}")
     return parsed
+
+
+def _parse_service_selection(query: str) -> tuple[str, ...] | None:
+    parameters = parse_qs(query, keep_blank_values=True)
+    values = parameters.get("services")
+    if values is None:
+        return None
+    if len(values) != 1 or len(values[0]) > 12_800:
+        raise ValueError("invalid services")
+    if not values[0]:
+        return ()
+
+    names = tuple(dict.fromkeys(values[0].split(",")))
+    if len(names) > 100 or any(
+        not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", name)
+        for name in names
+    ):
+        raise ValueError("invalid services")
+    return names
 
 
 def _send_magic_packet(settings: Settings) -> None:

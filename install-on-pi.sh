@@ -26,7 +26,6 @@ Options:
   --media-max-bytes BYTES  Maximum media upload size. Default: 1073741824
   --media-read-timeout SECONDS
                            Maximum pause while reading an upload. Default: 300
-  --services CSV           Optional comma-separated Docker container names
   --wake-mac MAC           Optional PC MAC address enabling Wake-on-LAN
   --wake-broadcast IP      LAN broadcast address for Wake-on-LAN. Default: 192.168.1.255
   --wake-port PORT         UDP port for Wake-on-LAN. Default: 9
@@ -108,7 +107,6 @@ BACKUP_LABEL=""
 MEDIA_BACKUP_ROOT=""
 MEDIA_MAX_BYTES="1073741824"
 MEDIA_READ_TIMEOUT="300"
-SERVICES_CSV=""
 WAKE_MAC=""
 WAKE_BROADCAST="192.168.1.255"
 WAKE_PORT="9"
@@ -120,7 +118,7 @@ INSTALL_DIR_EXPLICIT="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --user|--install-dir|--service-name|--port|--bind-mode|--host|--tailscale-ip|--backup-label|--media-backup-root|--media-max-bytes|--media-read-timeout|--services|--wake-mac|--wake-broadcast|--wake-port|--token)
+    --user|--install-dir|--service-name|--port|--bind-mode|--host|--tailscale-ip|--backup-label|--media-backup-root|--media-max-bytes|--media-read-timeout|--wake-mac|--wake-broadcast|--wake-port|--token)
       if [[ $# -lt 2 ]]; then
         echo "$1 requires a value" >&2
         exit 1
@@ -172,10 +170,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --media-read-timeout)
       MEDIA_READ_TIMEOUT="$2"
-      shift 2
-      ;;
-    --services)
-      SERVICES_CSV="$2"
       shift 2
       ;;
     --wake-mac)
@@ -422,12 +416,6 @@ PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=${MEDIA_READ_TIMEOUT}
 PISTATS_WAKE_BROADCAST=${WAKE_BROADCAST}
 PISTATS_WAKE_PORT=${WAKE_PORT}
 EOF
-
-  if [[ -n "${SERVICES_CSV}" ]]; then
-    cat >>"${ENV_PATH}" <<EOF
-PISTATS_SERVICES=${SERVICES_CSV}
-EOF
-  fi
 
   if [[ -n "${HOST}" ]]; then
     cat >>"${ENV_PATH}" <<EOF
