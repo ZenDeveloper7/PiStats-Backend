@@ -279,7 +279,7 @@ Port behavior:
 ## Deployment docs
 
 - [Installation Guide](docs/INSTALLATION.md)
-- [v1.0.0 Release Notes](docs/RELEASE_NOTES.md)
+- [Release Notes](docs/RELEASE_NOTES.md)
 - [Maintainer Release Guide](docs/RELEASING.md)
 - [Pi Deployment Guide](docs/PI_DEPLOYMENT.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)

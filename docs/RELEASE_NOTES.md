@@ -1,5 +1,43 @@
 # Release notes
 
+## v1.1.0 — 2026-08-13
+
+This release lets each PiStats client discover Docker containers and choose
+which services it wants to monitor, without requiring a predefined server-side
+service list.
+
+### Client-managed service monitoring
+
+- Added `GET /api/services` to return Docker containers visible to the backend.
+- Added the optional `services` query parameter to `GET /api/stats` for
+  per-client monitoring selections.
+- Kept `PISTATS_SERVICES` as a compatibility fallback for older clients.
+- Replaced per-container inspection with a single `docker ps -a` query and
+  normalized container states for the API.
+
+### API and configuration hardening
+
+- Expanded `GET /api/health` with API version and optional-feature discovery.
+- Added `Cache-Control: no-store` and `X-Content-Type-Options: nosniff` to JSON
+  responses.
+- Added startup validation for tokens, bind modes, ports, Wake-on-LAN settings,
+  and unauthenticated development-mode exposure.
+- Stopped probing or selecting arbitrary disks when backup-drive monitoring is
+  not configured.
+- Retained systemd hardening while allowing user-configured media, database, and
+  temporary paths to remain writable.
+
+### Documentation and tests
+
+- Updated Android service-selection, private-network, filesystem, and privacy
+  documentation.
+- Added tests for service discovery, client filtering, health capabilities,
+  configuration validation, disk opt-in behavior, and service-unit path access.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.1.0>
+
+Installation: <https://github.com/ZenDeveloper7/PiStats-Backend/blob/main/docs/INSTALLATION.md>
+
 ## v1.0.0 — 2026-08-13
 
 The first packaged PiStats Backend release makes the service suitable for

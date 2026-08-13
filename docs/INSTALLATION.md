@@ -55,13 +55,13 @@ The package starts `pistats-backend.service` and creates a configuration file at
 
 ## Alternative: install a downloaded `.deb`
 
-Download `pistats-backend_1.0.0_all.deb` and `SHA256SUMS` from the
-[v1.0.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.0.0),
+Download `pistats-backend_1.1.0_all.deb` and `SHA256SUMS` from the
+[v1.1.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.1.0),
 verify the package, and install it:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./pistats-backend_1.0.0_all.deb
+sudo apt install ./pistats-backend_1.1.0_all.deb
 ```
 
 This installs the same package, but future releases are not discovered

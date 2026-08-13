@@ -29,13 +29,13 @@ On Debian or Raspberry Pi OS:
 ```bash
 sudo apt install build-essential debhelper devscripts lintian
 ./packaging/build-deb.sh
-lintian ../pistats-backend_1.0.0_all.changes
+lintian --profile debian ../pistats-backend_1.1.0_amd64.changes
 ```
 
 Install the result:
 
 ```bash
-sudo apt install ../pistats-backend_1.0.0_all.deb
+sudo apt install ../pistats-backend_1.1.0_all.deb
 sudoedit /etc/pistats/pistats.env
 sudo systemctl restart pistats-backend
 sudo systemctl status pistats-backend

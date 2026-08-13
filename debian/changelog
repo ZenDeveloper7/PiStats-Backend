@@ -1,3 +1,13 @@
+pistats-backend (1.1.0) unstable; urgency=medium
+
+  * Add Docker service discovery through GET /api/services.
+  * Allow clients to select monitored services per stats request.
+  * Advertise optional backend capabilities through the health endpoint.
+  * Validate security-sensitive configuration at startup.
+  * Preserve writable generic media paths with hardened service units.
+
+ -- ZenDeveloper <zenit027@proton.me>  Thu, 13 Aug 2026 19:20:00 +0530
+
 pistats-backend (1.0.0) unstable; urgency=medium
 
   * Initial Debian package release.
