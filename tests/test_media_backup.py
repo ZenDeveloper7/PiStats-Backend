@@ -22,7 +22,7 @@ from pi_backend.media_backup import (
     MediaBackupService,
     UploadRequest,
 )
-from pi_backend.server import create_handler
+from pi_backend.server import WakeOnLanController, create_handler
 
 
 DEVICE_ID = "12345678-1234-5678-9234-567812345678"
@@ -117,6 +117,42 @@ class RunningServer:
         connection.close()
         return result
 
+    def put_json(
+        self,
+        path: str,
+        payload: object,
+        *,
+        token: str = TOKEN,
+    ) -> tuple[int, bytes]:
+        body = json.dumps(payload).encode("utf-8")
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
+        connection.request(
+            "PUT",
+            path,
+            body=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Content-Length": str(len(body)),
+            },
+        )
+        response = connection.getresponse()
+        result = response.status, response.read()
+        connection.close()
+        return result
+
+    def post_wake(self, *, token: str = TOKEN) -> tuple[int, bytes]:
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
+        connection.request(
+            "POST",
+            "/api/wakeonlan/wake",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response = connection.getresponse()
+        result = response.status, response.read()
+        connection.close()
+        return result
+
 
 class BlockingBody:
     def __init__(self, payload: bytes) -> None:
@@ -181,12 +217,14 @@ class MediaBackupApiTests(unittest.TestCase):
             {
                 "stats": True,
                 "wakeonlan": False,
+                "wakeonlan_control": True,
                 "media_backup": True,
                 "backup_drive": False,
                 "docker_services": True,
                 "service_selection": True,
             },
         )
+
 
     def test_lists_services_and_filters_stats_using_app_selection(self) -> None:
         available = [
@@ -381,6 +419,96 @@ class MediaBackupApiTests(unittest.TestCase):
             service.close()
 
         self.assertEqual(failures, [])
+
+
+class WakeOnLanControlTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.state_file = Path(self.temporary_directory.name) / "wake.json"
+        self.settings = base_settings(
+            wake_mac="00:11:22:33:44:55",
+            wake_state_file=str(self.state_file),
+        )
+
+    def tearDown(self) -> None:
+        self.temporary_directory.cleanup()
+
+    def test_disables_wake_requests_and_persists_across_restart(self) -> None:
+        with patch("pi_backend.server._send_magic_packet") as send_packet:
+            with RunningServer(self.settings) as server:
+                status, body = server.get("/api/wakeonlan/settings")
+                self.assertEqual(status, 200)
+                self.assertEqual(
+                    json.loads(body),
+                    {"configured": True, "enabled": True},
+                )
+
+                status, body = server.put_json(
+                    "/api/wakeonlan/settings",
+                    {"enabled": False},
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(
+                    json.loads(body),
+                    {"configured": True, "enabled": False},
+                )
+                status, body = server.post_wake()
+                self.assertEqual(status, 403)
+                self.assertEqual(json.loads(body)["error"], "wake_on_lan_disabled")
+                send_packet.assert_not_called()
+
+            with RunningServer(self.settings) as server:
+                status, body = server.get("/api/wakeonlan/settings")
+                self.assertEqual(status, 200)
+                self.assertFalse(json.loads(body)["enabled"])
+
+    def test_enables_wake_requests(self) -> None:
+        with patch("pi_backend.server._send_magic_packet") as send_packet:
+            with RunningServer(self.settings) as server:
+                status, _ = server.put_json(
+                    "/api/wakeonlan/settings",
+                    {"enabled": False},
+                )
+                self.assertEqual(status, 200)
+                status, _ = server.put_json(
+                    "/api/wakeonlan/settings",
+                    {"enabled": True},
+                )
+                self.assertEqual(status, 200)
+                status, _ = server.post_wake()
+                self.assertEqual(status, 200)
+                send_packet.assert_called_once_with(self.settings)
+
+    def test_syncs_state_file_and_parent_directory(self) -> None:
+        controller = WakeOnLanController(self.settings)
+        with patch("pi_backend.server.os.fsync", wraps=os.fsync) as sync:
+            controller.set_enabled(False)
+        self.assertEqual(sync.call_count, 2)
+        self.assertEqual(json.loads(self.state_file.read_text()), {"enabled": False})
+
+    def test_rejects_unauthorized_or_invalid_settings_updates(self) -> None:
+        with RunningServer(self.settings) as server:
+            status, _ = server.put_json(
+                "/api/wakeonlan/settings",
+                {"enabled": False},
+                token="wrong",
+            )
+            self.assertEqual(status, 401)
+            status, body = server.put_json(
+                "/api/wakeonlan/settings",
+                {"enabled": "false"},
+            )
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(body)["error"], "invalid_wake_settings")
+
+    def test_cannot_enable_without_a_configured_mac(self) -> None:
+        with RunningServer(base_settings(wake_state_file=str(self.state_file))) as server:
+            status, body = server.put_json(
+                "/api/wakeonlan/settings",
+                {"enabled": True},
+            )
+        self.assertEqual(status, 409)
+        self.assertEqual(json.loads(body)["error"], "wake_mac_not_configured")
 
 
 if __name__ == "__main__":

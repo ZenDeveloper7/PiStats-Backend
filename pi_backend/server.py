@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hmac
 import json
+import os
 import re
 import socket
 import sqlite3
+import threading
 import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -24,6 +27,7 @@ from .media_backup import (
 def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
     collector = StatsCollector(settings)
     media_backup = MediaBackupService(settings) if settings.media_backup_root else None
+    wake_on_lan = WakeOnLanController(settings)
 
     class PiStatsHandler(BaseHTTPRequestHandler):
         server_version = "PiStats/1.0"
@@ -46,7 +50,8 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                         "status": "ok",
                         "features": {
                             "stats": True,
-                            "wakeonlan": settings.wake_mac is not None,
+                            "wakeonlan": wake_on_lan.configured,
+                            "wakeonlan_control": True,
                             "media_backup": media_backup is not None,
                             "backup_drive": bool(
                                 settings.backup_label or settings.backup_mountpoint
@@ -55,6 +60,13 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                             "service_selection": True,
                         },
                     },
+                )
+                return
+
+            if request.path == "/api/wakeonlan/settings":
+                self._send_json(
+                    HTTPStatus.OK,
+                    wake_on_lan.status(),
                 )
                 return
 
@@ -95,10 +107,10 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
 
             if path == "/api/wakeonlan/wake":
                 try:
-                    _send_magic_packet(settings)
+                    wake_on_lan.wake(settings)
                 except WakeOnLanError as exc:
                     self._send_json(
-                        HTTPStatus.BAD_REQUEST,
+                        exc.status,
                         {"status": "failed", "error": str(exc)},
                     )
                     return
@@ -158,6 +170,34 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                 return
 
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+        def do_PUT(self) -> None:  # noqa: N802
+            if not self._is_authorized():
+                self._send_json(
+                    HTTPStatus.UNAUTHORIZED,
+                    {"error": "unauthorized"},
+                )
+                return
+
+            path = urlsplit(self.path).path
+            if path != "/api/wakeonlan/settings":
+                self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+                return
+
+            try:
+                enabled = self._parse_wake_on_lan_setting()
+                wake_on_lan.set_enabled(enabled)
+            except WakeOnLanError as exc:
+                self._send_json(exc.status, {"error": str(exc)})
+                return
+            except OSError:
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"error": "wake_state_write_failed"},
+                )
+                return
+
+            self._send_json(HTTPStatus.OK, wake_on_lan.status())
 
         def log_message(self, format: str, *args: Any) -> None:
             return
@@ -255,6 +295,35 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                 idempotency_key=idempotency_key,
             )
 
+        def _parse_wake_on_lan_setting(self) -> bool:
+            if self.headers.get_content_type() != "application/json":
+                raise WakeOnLanError(
+                    "content_type_must_be_application_json",
+                    HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                )
+            raw_length = self.headers.get("Content-Length")
+            try:
+                content_length = int(raw_length or "")
+            except ValueError as exc:
+                raise WakeOnLanError("invalid_content_length") from exc
+            if content_length <= 0 or content_length > 1_024:
+                raise WakeOnLanError("invalid_content_length")
+
+            payload_bytes = self.rfile.read(content_length)
+            if len(payload_bytes) != content_length:
+                raise WakeOnLanError("incomplete_request_body")
+            try:
+                payload = json.loads(payload_bytes)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise WakeOnLanError("invalid_json") from exc
+            if (
+                not isinstance(payload, dict)
+                or set(payload) != {"enabled"}
+                or not isinstance(payload["enabled"], bool)
+            ):
+                raise WakeOnLanError("invalid_wake_settings")
+            return payload["enabled"]
+
         def _send_json(self, status: HTTPStatus, body: dict[str, Any]) -> None:
             payload = json.dumps(body).encode("utf-8")
             self.send_response(status)
@@ -274,7 +343,88 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
 
 
 class WakeOnLanError(Exception):
-    pass
+    def __init__(
+        self,
+        code: str,
+        status: HTTPStatus = HTTPStatus.BAD_REQUEST,
+    ) -> None:
+        super().__init__(code)
+        self.status = status
+
+
+class WakeOnLanController:
+    def __init__(self, settings: Settings) -> None:
+        self.configured = settings.wake_mac is not None
+        self._state_file = Path(settings.wake_state_file) if settings.wake_state_file else None
+        self._lock = threading.Lock()
+        self._enabled = self.configured
+        self._load()
+
+    def status(self) -> dict[str, bool]:
+        with self._lock:
+            return {
+                "configured": self.configured,
+                "enabled": self._enabled,
+            }
+
+    def set_enabled(self, enabled: bool) -> None:
+        if enabled and not self.configured:
+            raise WakeOnLanError(
+                "wake_mac_not_configured",
+                HTTPStatus.CONFLICT,
+            )
+        with self._lock:
+            self._persist(enabled)
+            self._enabled = enabled
+
+    def wake(self, settings: Settings) -> None:
+        with self._lock:
+            if not self.configured:
+                raise WakeOnLanError("wake_mac_not_configured")
+            if not self._enabled:
+                raise WakeOnLanError(
+                    "wake_on_lan_disabled",
+                    HTTPStatus.FORBIDDEN,
+                )
+            _send_magic_packet(settings)
+
+    def _load(self) -> None:
+        if not self.configured or self._state_file is None:
+            return
+        try:
+            payload = json.loads(self._state_file.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Could not read PISTATS_WAKE_STATE_FILE") from exc
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"enabled"}
+            or not isinstance(payload["enabled"], bool)
+        ):
+            raise ValueError("PISTATS_WAKE_STATE_FILE contains invalid data")
+        self._enabled = payload["enabled"]
+
+    def _persist(self, enabled: bool) -> None:
+        if self._state_file is None:
+            return
+        self._state_file.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self._state_file.with_name(f".{self._state_file.name}.tmp")
+        with temporary.open("w", encoding="utf-8") as output:
+            json.dump({"enabled": enabled}, output, separators=(",", ":"))
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, self._state_file)
+        directory = os.open(
+            self._state_file.parent,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+        )
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
 
 def _tokens_equal(received: str, expected: str) -> bool:

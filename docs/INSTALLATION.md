@@ -55,13 +55,13 @@ The package starts `pistats-backend.service` and creates a configuration file at
 
 ## Alternative: install a downloaded `.deb`
 
-Download `pistats-backend_1.1.0_all.deb` and `SHA256SUMS` from the
-[v1.1.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.1.0),
+Download `pistats-backend_1.2.0_all.deb` and `SHA256SUMS` from the
+[v1.2.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.2.0),
 verify the package, and install it:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./pistats-backend_1.1.0_all.deb
+sudo apt install ./pistats-backend_1.2.0_all.deb
 ```
 
 This installs the same package, but future releases are not discovered
@@ -149,6 +149,11 @@ PISTATS_WAKE_BROADCAST=192.168.1.255
 PISTATS_WAKE_PORT=9
 ```
 
+The package and install script also configure a private, service-writable
+`PISTATS_WAKE_STATE_FILE`. The Android app uses it through the authenticated
+settings API, so enable/disable changes survive backend restarts. Keep the MAC,
+broadcast address, and port in this Pi-side environment file.
+
 Restart the service and test it:
 
 ```bash
@@ -156,6 +161,9 @@ sudo systemctl restart pistats-backend
 PISTATS_TOKEN="$(sudo sed -n 's/^PISTATS_TOKEN=//p' /etc/pistats/pistats.env)"
 curl -X POST -H "X-Wake-Token: ${PISTATS_TOKEN}" \
   http://127.0.0.1:8787/api/wakeonlan/wake
+curl -X PUT -H "Authorization: Bearer ${PISTATS_TOKEN}" \
+  -H 'Content-Type: application/json' -d '{"enabled":false}' \
+  http://127.0.0.1:8787/api/wakeonlan/settings
 ```
 
 ## Optional media backup

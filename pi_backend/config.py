@@ -21,6 +21,7 @@ class Settings:
     wake_mac: str | None
     wake_broadcast: str
     wake_port: int
+    wake_state_file: str | None = None
     media_backup_root: str | None = None
     media_backup_database: str | None = None
     media_backup_temp_dir: str | None = None
@@ -48,6 +49,7 @@ def load_settings() -> Settings:
         wake_mac=_clean_env("PISTATS_WAKE_MAC"),
         wake_broadcast=os.getenv("PISTATS_WAKE_BROADCAST", "192.168.1.255").strip() or "192.168.1.255",
         wake_port=int(os.getenv("PISTATS_WAKE_PORT", "9")),
+        wake_state_file=_clean_env("PISTATS_WAKE_STATE_FILE"),
         media_backup_root=_clean_env("PISTATS_MEDIA_BACKUP_ROOT"),
         media_backup_database=_clean_env("PISTATS_MEDIA_BACKUP_DATABASE"),
         media_backup_temp_dir=_clean_env("PISTATS_MEDIA_BACKUP_TEMP_DIR"),

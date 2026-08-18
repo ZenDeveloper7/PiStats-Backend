@@ -257,12 +257,18 @@ if ! command_exists realpath; then
   exit 1
 fi
 
+if ! command_exists runuser; then
+  echo "runuser is required but not installed (normally provided by util-linux)." >&2
+  exit 1
+fi
+
 if [[ "${INSTALL_DIR}" != /* || "${INSTALL_DIR}" == "/" ]]; then
   echo "--install-dir must be an absolute path other than /" >&2
   exit 1
 fi
 INSTALL_DIR="$(realpath -m -- "${INSTALL_DIR}")"
 ENV_PATH="${INSTALL_DIR}/.env"
+WAKE_STATE_FILE="${INSTALL_DIR}/state/wake-on-lan.json"
 
 if ! [[ "${SERVICE_NAME}" =~ ^[A-Za-z0-9_.@-]+$ ]]; then
   echo "--service-name contains unsupported characters" >&2
@@ -327,9 +333,19 @@ if [[ -f "${ENV_PATH}" && "${FORCE_ENV}" != "1" ]]; then
      [[ "${configured_port}" -ge 1 ]] && [[ "${configured_port}" -le 65535 ]]; then
     PORT="${configured_port}"
   fi
+  configured_wake_state_file="$(sed -n 's/^PISTATS_WAKE_STATE_FILE=//p' "${ENV_PATH}" | tail -n 1)"
+  if [[ -n "${configured_wake_state_file}" ]]; then
+    WAKE_STATE_FILE="${configured_wake_state_file}"
+  fi
 else
   PORT="$(find_available_port "${REQUESTED_PORT}")"
 fi
+
+if [[ "${WAKE_STATE_FILE}" != /* ]]; then
+  WAKE_STATE_FILE="${INSTALL_DIR}/${WAKE_STATE_FILE}"
+fi
+WAKE_STATE_FILE="$(realpath -m -- "${WAKE_STATE_FILE}")"
+WAKE_STATE_DIR="$(dirname -- "${WAKE_STATE_FILE}")"
 
 echo "Installing PiStats backend"
 echo "  user: ${SERVICE_USER}"
@@ -357,26 +373,42 @@ case "${source_dir}/" in
     ;;
 esac
 if [[ "${source_dir}" != "${install_dir_resolved}" ]]; then
-  rsync -a --delete \
-    --exclude '.env' \
-    --exclude '.git/' \
-    --exclude '.agents/' \
-    --exclude '.codex/' \
-    --exclude '__pycache__/' \
-    --exclude '*.pyc' \
-    ./ "${INSTALL_DIR}/"
+  rsync_excludes=(
+    --exclude '.env'
+    --exclude 'state/'
+    --exclude '.git/'
+    --exclude '.agents/'
+    --exclude '.codex/'
+    --exclude '__pycache__/'
+    --exclude '*.pyc'
+  )
+  case "${WAKE_STATE_FILE}" in
+    "${INSTALL_DIR}/"*)
+      wake_state_relative="${WAKE_STATE_FILE#"${INSTALL_DIR}/"}"
+      rsync_excludes+=(--exclude "/${wake_state_relative}")
+      ;;
+  esac
+  rsync -a --delete "${rsync_excludes[@]}" ./ "${INSTALL_DIR}/"
 else
   echo "Source is already ${INSTALL_DIR}; skipping file synchronization."
 fi
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}"
 chmod +x "${INSTALL_DIR}/install-on-pi.sh"
+service_group="$(id -gn "${SERVICE_USER}")"
+if [[ ! -e "${WAKE_STATE_DIR}" ]]; then
+  install -d -o "${SERVICE_USER}" -g "${service_group}" -m 0750 \
+    "${WAKE_STATE_DIR}"
+elif [[ ! -d "${WAKE_STATE_DIR}" ]]; then
+  echo "Wake-on-LAN state parent is not a directory: ${WAKE_STATE_DIR}" >&2
+  exit 1
+fi
+if ! runuser -u "${SERVICE_USER}" -- test -w "${WAKE_STATE_DIR}"; then
+  echo "User ${SERVICE_USER} cannot write to ${WAKE_STATE_DIR}." >&2
+  echo "Adjust its owner/group permissions and run the installer again." >&2
+  exit 1
+fi
 
 if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
-  if ! command_exists runuser; then
-    echo "Media backup setup requires runuser (normally provided by util-linux)." >&2
-    exit 1
-  fi
-  service_group="$(id -gn "${SERVICE_USER}")"
   if [[ ! -e "${MEDIA_BACKUP_ROOT}" ]]; then
     install -d -o "${SERVICE_USER}" -g "${service_group}" -m 0750 "${MEDIA_BACKUP_ROOT}"
   elif [[ ! -d "${MEDIA_BACKUP_ROOT}" ]]; then
@@ -415,6 +447,7 @@ PISTATS_MEDIA_BACKUP_MAX_BYTES=${MEDIA_MAX_BYTES}
 PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=${MEDIA_READ_TIMEOUT}
 PISTATS_WAKE_BROADCAST=${WAKE_BROADCAST}
 PISTATS_WAKE_PORT=${WAKE_PORT}
+PISTATS_WAKE_STATE_FILE=${WAKE_STATE_FILE}
 EOF
 
   if [[ -n "${HOST}" ]]; then
@@ -452,6 +485,13 @@ else
     echo "Set PISTATS_MEDIA_BACKUP_ROOT=${MEDIA_BACKUP_ROOT} in ${ENV_PATH}, then restart the service."
   fi
 fi
+
+if ! grep -q '^PISTATS_WAKE_STATE_FILE=' "${ENV_PATH}"; then
+  echo "PISTATS_WAKE_STATE_FILE=${WAKE_STATE_FILE}" >>"${ENV_PATH}"
+  echo "Added persistent Wake-on-LAN state path to ${ENV_PATH}"
+fi
+chown "${SERVICE_USER}:${SERVICE_USER}" "${ENV_PATH}"
+chmod 600 "${ENV_PATH}"
 
 cat >"${SERVICE_PATH}" <<EOF
 [Unit]

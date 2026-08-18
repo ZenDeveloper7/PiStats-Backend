@@ -112,6 +112,7 @@ PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=300
 PISTATS_WAKE_MAC=00:11:22:33:44:55
 PISTATS_WAKE_BROADCAST=192.168.1.255
 PISTATS_WAKE_PORT=9
+PISTATS_WAKE_STATE_FILE=/opt/pistats/state/wake-on-lan.json
 # Optional compatibility fallback for older Android clients:
 # PISTATS_SERVICES=service-a,service-b
 # PISTATS_TAILSCALE_IP=100.x.y.z
@@ -146,6 +147,7 @@ In another shell on the Pi:
 ```bash
 curl -H "Authorization: Bearer $PISTATS_TOKEN" http://127.0.0.1:8787/api/health
 curl -H "Authorization: Bearer $PISTATS_TOKEN" http://127.0.0.1:8787/api/stats
+curl -H "Authorization: Bearer $PISTATS_TOKEN" http://127.0.0.1:8787/api/wakeonlan/settings
 curl -X POST -H "X-Wake-Token: $PISTATS_TOKEN" http://127.0.0.1:8787/api/wakeonlan/wake
 tailscale ip -4
 ```

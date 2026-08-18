@@ -25,6 +25,8 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   - `GET /api/health`
   - `GET /api/services`
   - `GET /api/stats`
+  - `GET /api/wakeonlan/settings`
+  - `PUT /api/wakeonlan/settings`
   - `POST /api/wakeonlan/wake`
   - `POST /api/media/backup/items` (optional; configured by `PISTATS_MEDIA_BACKUP_ROOT`)
 
@@ -39,7 +41,8 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Docker service discovery/status: one `docker ps -a` query when Docker is available
 - Backup drive state: `lsblk` + `findmnt`, with optional mountpoint/label hints from environment
 - Wake-on-LAN: Python UDP magic packet sent to `PISTATS_WAKE_BROADCAST:PISTATS_WAKE_PORT`
-  for `PISTATS_WAKE_MAC`; no third-party wake dependency is required
+  for `PISTATS_WAKE_MAC`; its app-managed enabled state is persisted in
+  `PISTATS_WAKE_STATE_FILE`; no third-party wake dependency is required
 
 ## Android scope
 

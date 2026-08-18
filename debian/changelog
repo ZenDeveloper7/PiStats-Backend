@@ -1,3 +1,11 @@
+pistats-backend (1.2.0) unstable; urgency=medium
+
+  * Add authenticated runtime Wake-on-LAN enable and disable controls.
+  * Persist Wake-on-LAN control state safely across service restarts.
+  * Advertise Wake-on-LAN control support through the health endpoint.
+
+ -- ZenDeveloper <zenit027@proton.me>  Tue, 18 Aug 2026 09:50:46 +0530
+
 pistats-backend (1.1.0) unstable; urgency=medium
 
   * Add Docker service discovery through GET /api/services.

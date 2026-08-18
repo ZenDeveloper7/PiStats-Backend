@@ -38,6 +38,7 @@ drive monitoring, or media backup is configured.
   "features": {
     "stats": true,
     "wakeonlan": false,
+    "wakeonlan_control": true,
     "media_backup": false,
     "backup_drive": false,
     "docker_services": true,
@@ -211,6 +212,9 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
 - `PISTATS_WAKE_PORT`
   - UDP port used for Wake-on-LAN
   - default: `9`
+- `PISTATS_WAKE_STATE_FILE`
+  - service-writable JSON file that persists the app-managed enabled state
+  - set automatically by the APT package and install script
 - `PISTATS_MEDIA_BACKUP_ROOT`
   - enables the media endpoint and names its destination directory; that
     directory may optionally be exported by Samba or another file-sharing service
@@ -255,6 +259,20 @@ Success response:
   "port": 9
 }
 ```
+
+The Android app manages whether Wake-on-LAN is active through the same bearer
+authentication:
+
+```bash
+curl -H "Authorization: Bearer change-me" \
+  http://127.0.0.1:8787/api/wakeonlan/settings
+curl -X PUT -H "Authorization: Bearer change-me" \
+  -H "Content-Type: application/json" -d '{"enabled":false}' \
+  http://127.0.0.1:8787/api/wakeonlan/settings
+```
+
+Disabling it persists across service restarts and makes the wake endpoint return
+`403`. The MAC address and LAN broadcast details remain Pi-side configuration.
 
 ## Install script
 

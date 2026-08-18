@@ -1,5 +1,28 @@
 # Release notes
 
+## v1.2.0 — 2026-08-18
+
+This release lets authenticated clients enable or disable Wake-on-LAN without
+changing the Pi-side network and hardware configuration.
+
+### Wake-on-LAN control
+
+- Added authenticated `GET` and `PUT /api/wakeonlan/settings` endpoints.
+- Added persistent enable/disable state with atomic, power-loss-safe writes.
+- Disabled wake requests now return `403` without sending a magic packet.
+- Advertised client control support through the health endpoint.
+- Added private state paths to both Debian and source installations while
+  preserving existing configuration during upgrades.
+
+### Verification
+
+- Added coverage for authentication, validation, concurrent access, restart
+  persistence, and unconfigured Wake-on-LAN behavior.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.2.0>
+
+Installation: <https://github.com/ZenDeveloper7/PiStats-Backend/blob/main/docs/INSTALLATION.md>
+
 ## v1.1.0 — 2026-08-13
 
 This release lets each PiStats client discover Docker containers and choose
