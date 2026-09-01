@@ -55,13 +55,13 @@ The package starts `pistats-backend.service` and creates a configuration file at
 
 ## Alternative: install a downloaded `.deb`
 
-Download `pistats-backend_1.2.0_all.deb` and `SHA256SUMS` from the
-[v1.2.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.2.0),
+Download `pistats-backend_1.3.0_all.deb` and `SHA256SUMS` from the
+[v1.3.0 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.3.0),
 verify the package, and install it:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./pistats-backend_1.2.0_all.deb
+sudo apt install ./pistats-backend_1.3.0_all.deb
 ```
 
 This installs the same package, but future releases are not discovered
@@ -194,6 +194,13 @@ and temporary paths may use any writable absolute location accessible to the
 `pistats` service account. See the
 [media backup API](MEDIA_BACKUP_API.md) for the complete protocol.
 
+## Optional Actual Budget transaction sync
+
+Install the matching official Actual API client, create explicit sender/account
+mappings, and add the private integration settings described in
+[Actual Budget transaction sync](ACTUAL_BUDGET.md). PiStats only imports
+approved normalized transactions; it never starts or stops Actual Budget.
+
 ## Upgrade
 
 APT installations upgrade normally:
@@ -255,3 +262,6 @@ Do not run it alongside the Debian package on the same port. See the
 - Media endpoint returns `404`: configure `PISTATS_MEDIA_BACKUP_ROOT` and restart.
 - Media startup failure: ensure the root exists, is writable by `pistats`, and
   its state/temp paths are on the same filesystem.
+- Actual Budget remains hidden: complete the opt-in setup in
+  [Actual Budget transaction sync](ACTUAL_BUDGET.md), then verify Node, the API
+  package version, credentials, Sync ID, and every mapped account.

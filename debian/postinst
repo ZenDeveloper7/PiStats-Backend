@@ -13,6 +13,7 @@ fi
 
 install -d -o root -g pistats -m 0750 /etc/pistats
 install -d -o pistats -g pistats -m 0750 /var/lib/pistats
+install -d -o pistats -g pistats -m 0750 /var/lib/pistats/actual-cache
 
 if [ ! -f /etc/pistats/pistats.env ]; then
     token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -26,6 +27,8 @@ PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=300
 PISTATS_WAKE_BROADCAST=192.168.1.255
 PISTATS_WAKE_PORT=9
 PISTATS_WAKE_STATE_FILE=/var/lib/pistats/wake-on-lan.json
+PISTATS_TRANSACTION_DATABASE=/var/lib/pistats/transactions.sqlite3
+PISTATS_ACTUAL_DATA_DIR=/var/lib/pistats/actual-cache
 EOF
     chown root:pistats /etc/pistats/pistats.env
     chmod 0640 /etc/pistats/pistats.env
@@ -33,6 +36,14 @@ fi
 
 if ! grep -q '^PISTATS_WAKE_STATE_FILE=' /etc/pistats/pistats.env; then
     printf '%s\n' 'PISTATS_WAKE_STATE_FILE=/var/lib/pistats/wake-on-lan.json' \
+        >>/etc/pistats/pistats.env
+fi
+if ! grep -q '^PISTATS_TRANSACTION_DATABASE=' /etc/pistats/pistats.env; then
+    printf '%s\n' 'PISTATS_TRANSACTION_DATABASE=/var/lib/pistats/transactions.sqlite3' \
+        >>/etc/pistats/pistats.env
+fi
+if ! grep -q '^PISTATS_ACTUAL_DATA_DIR=' /etc/pistats/pistats.env; then
+    printf '%s\n' 'PISTATS_ACTUAL_DATA_DIR=/var/lib/pistats/actual-cache' \
         >>/etc/pistats/pistats.env
 fi
 

@@ -269,6 +269,9 @@ fi
 INSTALL_DIR="$(realpath -m -- "${INSTALL_DIR}")"
 ENV_PATH="${INSTALL_DIR}/.env"
 WAKE_STATE_FILE="${INSTALL_DIR}/state/wake-on-lan.json"
+TRANSACTION_DATABASE="${INSTALL_DIR}/state/transactions.sqlite3"
+ACTUAL_DATA_DIR="${INSTALL_DIR}/state/actual-cache"
+ACTUAL_MAPPINGS_FILE=""
 
 if ! [[ "${SERVICE_NAME}" =~ ^[A-Za-z0-9_.@-]+$ ]]; then
   echo "--service-name contains unsupported characters" >&2
@@ -337,6 +340,15 @@ if [[ -f "${ENV_PATH}" && "${FORCE_ENV}" != "1" ]]; then
   if [[ -n "${configured_wake_state_file}" ]]; then
     WAKE_STATE_FILE="${configured_wake_state_file}"
   fi
+  configured_transaction_database="$(sed -n 's/^PISTATS_TRANSACTION_DATABASE=//p' "${ENV_PATH}" | tail -n 1)"
+  if [[ -n "${configured_transaction_database}" ]]; then
+    TRANSACTION_DATABASE="${configured_transaction_database}"
+  fi
+  configured_actual_data_dir="$(sed -n 's/^PISTATS_ACTUAL_DATA_DIR=//p' "${ENV_PATH}" | tail -n 1)"
+  if [[ -n "${configured_actual_data_dir}" ]]; then
+    ACTUAL_DATA_DIR="${configured_actual_data_dir}"
+  fi
+  ACTUAL_MAPPINGS_FILE="$(sed -n 's/^PISTATS_ACTUAL_MAPPINGS_FILE=//p' "${ENV_PATH}" | tail -n 1)"
 else
   PORT="$(find_available_port "${REQUESTED_PORT}")"
 fi
@@ -346,6 +358,21 @@ if [[ "${WAKE_STATE_FILE}" != /* ]]; then
 fi
 WAKE_STATE_FILE="$(realpath -m -- "${WAKE_STATE_FILE}")"
 WAKE_STATE_DIR="$(dirname -- "${WAKE_STATE_FILE}")"
+if [[ "${TRANSACTION_DATABASE}" != /* ]]; then
+  TRANSACTION_DATABASE="${INSTALL_DIR}/${TRANSACTION_DATABASE}"
+fi
+TRANSACTION_DATABASE="$(realpath -m -- "${TRANSACTION_DATABASE}")"
+TRANSACTION_STATE_DIR="$(dirname -- "${TRANSACTION_DATABASE}")"
+if [[ "${ACTUAL_DATA_DIR}" != /* ]]; then
+  ACTUAL_DATA_DIR="${INSTALL_DIR}/${ACTUAL_DATA_DIR}"
+fi
+ACTUAL_DATA_DIR="$(realpath -m -- "${ACTUAL_DATA_DIR}")"
+if [[ -n "${ACTUAL_MAPPINGS_FILE}" && "${ACTUAL_MAPPINGS_FILE}" != /* ]]; then
+  ACTUAL_MAPPINGS_FILE="${INSTALL_DIR}/${ACTUAL_MAPPINGS_FILE}"
+fi
+if [[ -n "${ACTUAL_MAPPINGS_FILE}" ]]; then
+  ACTUAL_MAPPINGS_FILE="$(realpath -m -- "${ACTUAL_MAPPINGS_FILE}")"
+fi
 
 echo "Installing PiStats backend"
 echo "  user: ${SERVICE_USER}"
@@ -381,6 +408,7 @@ if [[ "${source_dir}" != "${install_dir_resolved}" ]]; then
     --exclude '.codex/'
     --exclude '__pycache__/'
     --exclude '*.pyc'
+    --exclude 'node_modules/'
   )
   case "${WAKE_STATE_FILE}" in
     "${INSTALL_DIR}/"*)
@@ -388,6 +416,17 @@ if [[ "${source_dir}" != "${install_dir_resolved}" ]]; then
       rsync_excludes+=(--exclude "/${wake_state_relative}")
       ;;
   esac
+  for preserved_path in "${TRANSACTION_DATABASE}" "${ACTUAL_DATA_DIR}" "${ACTUAL_MAPPINGS_FILE}"; do
+    if [[ -z "${preserved_path}" ]]; then
+      continue
+    fi
+    case "${preserved_path}" in
+      "${INSTALL_DIR}/"*)
+        preserved_relative="${preserved_path#"${INSTALL_DIR}/"}"
+        rsync_excludes+=(--exclude "/${preserved_relative}")
+        ;;
+    esac
+  done
   rsync -a --delete "${rsync_excludes[@]}" ./ "${INSTALL_DIR}/"
 else
   echo "Source is already ${INSTALL_DIR}; skipping file synchronization."
@@ -407,6 +446,20 @@ if ! runuser -u "${SERVICE_USER}" -- test -w "${WAKE_STATE_DIR}"; then
   echo "Adjust its owner/group permissions and run the installer again." >&2
   exit 1
 fi
+
+for state_dir in "${TRANSACTION_STATE_DIR}" "${ACTUAL_DATA_DIR}"; do
+  if [[ ! -e "${state_dir}" ]]; then
+    install -d -o "${SERVICE_USER}" -g "${service_group}" -m 0750 "${state_dir}"
+  elif [[ ! -d "${state_dir}" ]]; then
+    echo "Transaction-sync state path is not a directory: ${state_dir}" >&2
+    exit 1
+  fi
+  if ! runuser -u "${SERVICE_USER}" -- test -w "${state_dir}"; then
+    echo "User ${SERVICE_USER} cannot write to ${state_dir}." >&2
+    echo "Adjust its owner/group permissions and run the installer again." >&2
+    exit 1
+  fi
+done
 
 if [[ -n "${MEDIA_BACKUP_ROOT}" ]]; then
   if [[ ! -e "${MEDIA_BACKUP_ROOT}" ]]; then
@@ -448,6 +501,8 @@ PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS=${MEDIA_READ_TIMEOUT}
 PISTATS_WAKE_BROADCAST=${WAKE_BROADCAST}
 PISTATS_WAKE_PORT=${WAKE_PORT}
 PISTATS_WAKE_STATE_FILE=${WAKE_STATE_FILE}
+PISTATS_TRANSACTION_DATABASE=${TRANSACTION_DATABASE}
+PISTATS_ACTUAL_DATA_DIR=${ACTUAL_DATA_DIR}
 EOF
 
   if [[ -n "${HOST}" ]]; then
@@ -489,6 +544,14 @@ fi
 if ! grep -q '^PISTATS_WAKE_STATE_FILE=' "${ENV_PATH}"; then
   echo "PISTATS_WAKE_STATE_FILE=${WAKE_STATE_FILE}" >>"${ENV_PATH}"
   echo "Added persistent Wake-on-LAN state path to ${ENV_PATH}"
+fi
+if ! grep -q '^PISTATS_TRANSACTION_DATABASE=' "${ENV_PATH}"; then
+  echo "PISTATS_TRANSACTION_DATABASE=${TRANSACTION_DATABASE}" >>"${ENV_PATH}"
+  echo "Added transaction idempotency state path to ${ENV_PATH}"
+fi
+if ! grep -q '^PISTATS_ACTUAL_DATA_DIR=' "${ENV_PATH}"; then
+  echo "PISTATS_ACTUAL_DATA_DIR=${ACTUAL_DATA_DIR}" >>"${ENV_PATH}"
+  echo "Added Actual Budget cache path to ${ENV_PATH}"
 fi
 chown "${SERVICE_USER}:${SERVICE_USER}" "${ENV_PATH}"
 chmod 600 "${ENV_PATH}"

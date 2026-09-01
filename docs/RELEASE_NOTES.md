@@ -1,5 +1,27 @@
 # Release notes
 
+## v1.3.0 — 2026-09-01
+
+### Actual Budget transaction sync
+
+- Added an authenticated normalized bank-SMS intake endpoint with strict schema,
+  size, sign, UUID, and idempotency validation.
+- Added explicit sender/account-hint mappings; unknown combinations are rejected.
+- Added an explicit per-budget currency setting; mismatched transaction
+  currencies are rejected before Actual is called.
+- Preserved Actual login and encryption passwords byte-for-byte when loading the
+  service environment.
+- Added durable SQLite idempotency and serialized imports using Actual's official
+  `@actual-app/api`, stable `imported_id` values, uncleared imports, and safe retry
+  behavior.
+- Added runtime `transaction_sync` and `actual_budget` capability discovery.
+- Kept Actual management and all personal service, account, path, and credential
+  choices opt-in.
+- Added APT/source state paths, bridge packaging, setup documentation, and
+  integration tests across the Python and Node boundary.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.3.0>
+
 ## v1.2.0 — 2026-08-18
 
 This release lets authenticated clients enable or disable Wake-on-LAN without

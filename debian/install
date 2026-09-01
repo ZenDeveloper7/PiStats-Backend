@@ -1,5 +1,8 @@
 pi_backend/*.py usr/lib/pistats/pi_backend
+pi_backend/*.cjs usr/lib/pistats/pi_backend
 packaging/pistats-backend usr/bin
 .env.example usr/share/pistats
+TRANSACTION_SYNC_API.md usr/share/doc/pistats-backend
+docs/ACTUAL_BUDGET.md usr/share/doc/pistats-backend
 docs/MEDIA_BACKUP_API.md usr/share/doc/pistats-backend
 docs/PI_DEPLOYMENT.md usr/share/doc/pistats-backend

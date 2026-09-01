@@ -1,3 +1,12 @@
+pistats-backend (1.3.0) unstable; urgency=medium
+
+  * Add reviewed bank-SMS transaction imports into Actual Budget.
+  * Require exact sender/account mappings and matching budget currency.
+  * Add durable idempotency, runtime health checks, and the Node API bridge.
+  * Preserve transaction state paths across source and Debian upgrades.
+
+ -- ZenDeveloper <zenit027@proton.me>  Tue, 01 Sep 2026 15:38:47 +0530
+
 pistats-backend (1.2.0) unstable; urgency=medium
 
   * Add authenticated runtime Wake-on-LAN enable and disable controls.

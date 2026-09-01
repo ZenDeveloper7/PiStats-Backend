@@ -222,6 +222,8 @@ class MediaBackupApiTests(unittest.TestCase):
                 "backup_drive": False,
                 "docker_services": True,
                 "service_selection": True,
+                "transaction_sync": True,
+                "actual_budget": False,
             },
         )
 

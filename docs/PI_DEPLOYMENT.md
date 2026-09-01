@@ -120,6 +120,9 @@ PISTATS_WAKE_STATE_FILE=/opt/pistats/state/wake-on-lan.json
 # PISTATS_MEDIA_BACKUP_DATABASE=/srv/media/.pistats-media-state/uploads.sqlite3
 # PISTATS_MEDIA_BACKUP_TEMP_DIR=/srv/media/.pistats-media-state/tmp
 # PISTATS_MEDIA_BACKUP_TEMP_MAX_AGE_SECONDS=86400
+# PISTATS_TRANSACTION_DATABASE=/opt/pistats/state/transactions.sqlite3
+# PISTATS_ACTUAL_DATA_DIR=/opt/pistats/state/actual-cache
+# See docs/ACTUAL_BUDGET.md for the remaining opt-in Actual settings.
 ```
 
 The media temporary directory must be outside the shared library but on the same
@@ -202,6 +205,7 @@ store it.
 - Do not expose this API publicly on the internet for v1.
 - Keep the token strong and unique.
 - Monitoring endpoints are read-only.
-- Wake-on-LAN and media backup are the write-style endpoints. Both require the
-  same token; keep them reachable only through Tailscale or another private path.
+- Wake-on-LAN, media backup, and transaction import are write-style endpoints.
+  All require the same bearer token; keep them reachable only through Tailscale
+  or another private path.
 - For extra hardening, bind to the Pi Tailscale IP and avoid public port forwarding.

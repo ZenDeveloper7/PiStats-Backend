@@ -12,6 +12,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - read-only monitoring endpoints
 - protected Wake-on-LAN endpoint
 - optional idempotent image/video backup into a configured filesystem library
+- optional reviewed bank-SMS transaction import into Actual Budget
 - lightweight Linux collectors
 - Docker-aware service status
 - backup drive detection
@@ -26,6 +27,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - `GET /api/stats`
 - `POST /api/wakeonlan/wake`
 - `POST /api/media/backup/items` (when configured)
+- `POST /api/transactions/sms` (intake is installed; import requires Actual configuration)
 
 `GET /api/health` advertises the optional features enabled by that particular
 installation. Clients should not assume Wake-on-LAN, Docker monitoring, backup
@@ -42,7 +44,9 @@ drive monitoring, or media backup is configured.
     "media_backup": false,
     "backup_drive": false,
     "docker_services": true,
-    "service_selection": true
+    "service_selection": true,
+    "transaction_sync": true,
+    "actual_budget": false
   }
 }
 ```
@@ -228,6 +232,24 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
   - incomplete upload retention; default: `86400`
 - `PISTATS_MEDIA_BACKUP_READ_TIMEOUT_SECONDS`
   - maximum pause while reading an upload body; default: `300`
+- `PISTATS_TRANSACTION_DATABASE`
+  - private SQLite idempotency state for transaction imports
+- `PISTATS_ACTUAL_SERVER_URL`, `PISTATS_ACTUAL_PASSWORD`, `PISTATS_ACTUAL_SYNC_ID`
+  - opt-in Actual server and budget credentials; all are required together with
+    `PISTATS_ACTUAL_CURRENCY` and `PISTATS_ACTUAL_MAPPINGS_FILE`
+- `PISTATS_ACTUAL_CURRENCY`
+  - three-letter currency code configured for the selected Actual budget;
+    transactions in any other currency are rejected before import
+- `PISTATS_ACTUAL_MAPPINGS_FILE`
+  - private JSON mapping from the exact SMS sender and account hint to an Actual
+    account ID; unknown combinations are rejected
+- `PISTATS_ACTUAL_DATA_DIR`
+  - private local cache used by Actual's official API client
+- `PISTATS_ACTUAL_API_MODULE`
+  - optional module path for `@actual-app/api`
+
+See [Actual Budget transaction sync](docs/ACTUAL_BUDGET.md) for the Node.js
+prerequisite, explicit account mapping, privacy model, and verification steps.
 
 ## Wake-on-LAN
 

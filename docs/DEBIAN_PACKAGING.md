@@ -14,13 +14,14 @@ also read the [release guide](RELEASING.md).
 /usr/bin/pistats-backend          executable
 /etc/pistats/pistats.env          generated, persistent configuration
 /var/lib/pistats/                 private service state
+/var/lib/pistats/actual-cache/    optional Actual API local cache
 /lib/systemd/system/pistats-backend.service
 ```
 
 The package creates a dedicated `pistats` system user. It does not preconfigure
-Docker containers, backup devices, media paths, Wake-on-LAN hardware, or network
-exposure. A unique bearer token and localhost-only binding are generated on the
-first installation.
+Docker containers, backup devices, media paths, Wake-on-LAN hardware, Actual
+Budget credentials/accounts, or network exposure. A unique bearer token and
+localhost-only binding are generated on the first installation.
 
 ## Build locally
 
@@ -29,13 +30,13 @@ On Debian or Raspberry Pi OS:
 ```bash
 sudo apt install build-essential debhelper devscripts lintian
 ./packaging/build-deb.sh
-lintian --profile debian ../pistats-backend_1.2.0_amd64.changes
+lintian --profile debian ../pistats-backend_1.3.0_amd64.changes
 ```
 
 Install the result:
 
 ```bash
-sudo apt install ../pistats-backend_1.2.0_all.deb
+sudo apt install ../pistats-backend_1.3.0_all.deb
 sudoedit /etc/pistats/pistats.env
 sudo systemctl restart pistats-backend
 sudo systemctl status pistats-backend
@@ -78,6 +79,12 @@ Then add:
 ```dotenv
 PISTATS_MEDIA_BACKUP_ROOT=/srv/media/mobile-backups
 ```
+
+Actual Budget support is also optional. The package ships the bridge code but
+does not download executable npm content during installation. Administrators
+install the matching official API client and configure private credentials and
+exact account mappings by following [Actual Budget transaction
+sync](ACTUAL_BUDGET.md).
 
 ## Automated distribution
 

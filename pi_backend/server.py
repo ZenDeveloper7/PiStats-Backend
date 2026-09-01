@@ -22,12 +22,22 @@ from .media_backup import (
     MediaBackupService,
     UploadRequest,
 )
+from .transaction_sync import (
+    TransactionSyncError,
+    TransactionSyncService,
+    parse_transaction_request,
+)
 
 
-def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
+def create_handler(
+    settings: Settings,
+    *,
+    transaction_sync_service: TransactionSyncService | None = None,
+) -> type[BaseHTTPRequestHandler]:
     collector = StatsCollector(settings)
     media_backup = MediaBackupService(settings) if settings.media_backup_root else None
     wake_on_lan = WakeOnLanController(settings)
+    transaction_sync = transaction_sync_service or TransactionSyncService(settings)
 
     class PiStatsHandler(BaseHTTPRequestHandler):
         server_version = "PiStats/1.0"
@@ -58,6 +68,8 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                             ),
                             "docker_services": True,
                             "service_selection": True,
+                            "transaction_sync": True,
+                            "actual_budget": transaction_sync.is_healthy(),
                         },
                     },
                 )
@@ -129,6 +141,28 @@ def create_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                         "port": settings.wake_port,
                     },
                 )
+                return
+
+            if path == "/api/transactions/sms":
+                try:
+                    event = parse_transaction_request(self.headers, self.rfile)
+                    imported = transaction_sync.import_event(event)
+                except TransactionSyncError as exc:
+                    self._send_json(exc.status, {"error": exc.code})
+                    return
+                except (OSError, sqlite3.Error):
+                    self._send_json(
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                        {"error": "transaction_state_failed"},
+                    )
+                    return
+                if not imported:
+                    self._send_json(
+                        HTTPStatus.CONFLICT,
+                        {"status": "already_imported"},
+                    )
+                    return
+                self._send_json(HTTPStatus.CREATED, {"status": "imported"})
                 return
 
             if path == "/api/media/backup/items":
