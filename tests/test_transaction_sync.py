@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 import http.client
 import json
 import shutil
@@ -8,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+import uuid
 from dataclasses import replace
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -93,12 +95,17 @@ class RunningServer:
         self.thread.join(timeout=2)
         self.handler.close_services()
 
-    def get(self, path: str) -> tuple[int, dict[str, object]]:
+    def get(
+        self,
+        path: str,
+        *,
+        token: str = TOKEN,
+    ) -> tuple:
         connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
         connection.request(
             "GET",
             path,
-            headers={"Authorization": f"Bearer {TOKEN}"},
+            headers={"Authorization": f"Bearer {token}"},
         )
         response = connection.getresponse()
         result = response.status, json.loads(response.read())
@@ -111,24 +118,34 @@ class RunningServer:
         *,
         event_id: str = EVENT_ID,
         token: str = TOKEN,
+        request_id: str | None = None,
+        include_headers: bool = False,
     ) -> tuple[int, dict[str, object]]:
         body = json.dumps(payload).encode("utf-8")
         connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+            "Idempotency-Key": event_id,
+            "X-PiStats-Device-Id": DEVICE_ID,
+        }
+        if request_id is not None:
+            headers["X-PiStats-Request-Id"] = request_id
         connection.request(
             "POST",
             "/api/transactions/sms",
             body=body,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Content-Length": str(len(body)),
-                "Idempotency-Key": event_id,
-                "X-PiStats-Device-Id": DEVICE_ID,
-            },
+            headers=headers,
         )
         response = connection.getresponse()
         response_body = response.read()
-        result = response.status, json.loads(response_body) if response_body else {}
+        result: tuple = (
+            response.status,
+            json.loads(response_body) if response_body else {},
+        )
+        if include_headers:
+            result += (dict(response.getheaders()),)
         connection.close()
         return result
 
@@ -163,7 +180,8 @@ class TransactionSyncApiTests(unittest.TestCase):
                 {
                     "mappings": [
                         {
-                            "sender": "VM-HDFCBK",
+                            "label": "HDFC Savings •1234",
+                            "sender": "HDFCBK",
                             "account_hint": "1234",
                             "actual_account_id": "actual-account-id",
                         }
@@ -204,6 +222,135 @@ class TransactionSyncApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertFalse(payload["features"]["actual_budget"])
 
+    def test_lists_safe_labeled_account_options(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.get("/api/transactions/accounts")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(len(payload["accounts"]), 1)
+        account = payload["accounts"][0]
+        self.assertEqual(account["label"], "HDFC Savings •1234")
+        self.assertEqual(account["sender_contains"], "HDFCBK")
+        self.assertEqual(account["account_hint"], "1234")
+        self.assertRegex(account["mapping_id"], r"^[0-9a-f-]{36}$")
+        self.assertNotIn("actual_account_id", account)
+
+    def test_account_options_require_bearer_auth(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.get(
+                "/api/transactions/accounts",
+                token="wrong",
+            )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
+
+    def test_account_options_are_disabled_without_actual_configuration(self) -> None:
+        service = TransactionSyncService(base_settings(), self.bridge)
+        with RunningServer(base_settings(), service) as server:
+            status, payload = server.get("/api/transactions/accounts")
+
+        self.assertEqual(status, 403)
+        self.assertEqual(payload, {"error": "transaction_sync_not_configured"})
+
+    def test_selected_account_mapping_is_used_for_import(self) -> None:
+        mapping_id = self.service.account_options()[0]["mapping_id"]
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(event(account_mapping_id=mapping_id))
+
+        self.assertEqual((status, payload), (201, {"status": "imported"}))
+        self.assertEqual(self.bridge.imports[0]["account_id"], "actual-account-id")
+
+    def test_request_id_is_echoed_logged_and_persisted_without_transaction_data(self) -> None:
+        request_id = "d5675780-a6ad-4e3d-b1f6-35c6703bc123"
+        with self.assertLogs("pistats.transaction_sync", level="INFO") as logs:
+            with RunningServer(self.settings, self.service) as server:
+                status, payload, headers = server.post(
+                    event(),
+                    request_id=request_id,
+                    include_headers=True,
+                )
+
+        self.assertEqual((status, payload), (201, {"status": "imported"}))
+        self.assertEqual(headers["X-PiStats-Request-Id"], request_id)
+        self.assertIn(f"request_id={request_id}", logs.output[0])
+        self.assertIn("outcome=imported", logs.output[0])
+        self.assertNotIn("SWIGGY", logs.output[0])
+        self.assertNotIn("24550", logs.output[0])
+        with closing(sqlite3.connect(self.base / "transactions.sqlite3")) as connection:
+            stored_request_id = connection.execute(
+                "SELECT request_id FROM transaction_imports"
+            ).fetchone()[0]
+        self.assertEqual(stored_request_id, request_id)
+
+    def test_existing_import_database_is_migrated_for_request_ids(self) -> None:
+        database = self.base / "transactions.sqlite3"
+        with closing(sqlite3.connect(database)) as connection, connection:
+            connection.execute(
+                """
+                CREATE TABLE transaction_imports (
+                    idempotency_key TEXT PRIMARY KEY,
+                    event_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    actual_account_id TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    error_code TEXT,
+                    updated_at INTEGER NOT NULL
+                )
+                """
+            )
+        request_id = "e891d546-034d-4ec6-bacf-0ed69979bcbb"
+
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(event(), request_id=request_id)
+
+        self.assertEqual((status, payload), (201, {"status": "imported"}))
+        with closing(sqlite3.connect(database)) as connection:
+            row = connection.execute(
+                "SELECT request_id, state FROM transaction_imports"
+            ).fetchone()
+        self.assertEqual(row, (request_id, "completed"))
+
+    def test_invalid_request_id_is_replaced_with_a_safe_generated_id(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload, headers = server.post(
+                event(),
+                request_id="not-a-uuid",
+                include_headers=True,
+            )
+
+        self.assertEqual((status, payload), (201, {"status": "imported"}))
+        self.assertNotEqual(headers["X-PiStats-Request-Id"], "not-a-uuid")
+        self.assertEqual(
+            str(uuid.UUID(headers["X-PiStats-Request-Id"])),
+            headers["X-PiStats-Request-Id"],
+        )
+
+    def test_unknown_selected_account_mapping_is_rejected(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(
+                event(account_mapping_id="00000000-0000-0000-0000-000000000000")
+            )
+
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "account_mapping_not_found"})
+        self.assertEqual(self.bridge.imports, [])
+
+    def test_selected_mapping_must_still_match_sender_and_account_hint(self) -> None:
+        mapping_id = self.service.account_options()[0]["mapping_id"]
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(
+                event(
+                    account_mapping_id=mapping_id,
+                    sender="VM-OTHERBK",
+                    account_hint="9999",
+                )
+            )
+
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "account_mapping_not_found"})
+        self.assertEqual(self.bridge.imports, [])
+
     def test_imports_normalized_event_and_returns_conflict_for_duplicate(self) -> None:
         with RunningServer(self.settings, self.service) as server:
             status, payload = server.post(event())
@@ -229,7 +376,7 @@ class TransactionSyncApiTests(unittest.TestCase):
                 },
             },
         )
-        with sqlite3.connect(self.base / "transactions.sqlite3") as connection:
+        with closing(sqlite3.connect(self.base / "transactions.sqlite3")) as connection:
             row = connection.execute(
                 "SELECT state, device_id FROM transaction_imports"
             ).fetchone()
@@ -248,6 +395,50 @@ class TransactionSyncApiTests(unittest.TestCase):
 
         self.assertEqual(status, 422)
         self.assertEqual(payload, {"error": "account_mapping_not_found"})
+        self.assertEqual(self.bridge.imports, [])
+
+    def test_sender_mapping_is_case_insensitive_substring(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(event(sender="ad-hdfcbk-alerts"))
+
+        self.assertEqual((status, payload), (201, {"status": "imported"}))
+        self.assertEqual(len(self.bridge.imports), 1)
+
+    def test_sender_without_configured_fragment_is_rejected(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, payload = server.post(event(sender="VM-OTHERBK"))
+
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "account_mapping_not_found"})
+        self.assertEqual(self.bridge.imports, [])
+
+    def test_ambiguous_sender_fragments_for_different_accounts_are_rejected(self) -> None:
+        self.mappings.write_text(
+            json.dumps(
+                {
+                    "mappings": [
+                        {
+                            "sender": "HDFCBK",
+                            "account_hint": "1234",
+                            "actual_account_id": "first-account",
+                        },
+                        {
+                            "sender": "BANK",
+                            "account_hint": "1234",
+                            "actual_account_id": "second-account",
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        service = TransactionSyncService(self.settings, self.bridge)
+
+        with RunningServer(self.settings, service) as server:
+            status, payload = server.post(event(sender="VM-HDFCBK-BANK"))
+
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "account_mapping_ambiguous"})
         self.assertEqual(self.bridge.imports, [])
 
     def test_currency_mismatch_is_rejected_without_calling_actual(self) -> None:
@@ -298,15 +489,25 @@ class TransactionSyncApiTests(unittest.TestCase):
 
     def test_actual_failure_is_retryable_and_does_not_complete_idempotency(self) -> None:
         self.bridge.error = "network"
-        with RunningServer(self.settings, self.service) as server:
-            status, payload = server.post(event())
-            self.assertEqual(status, 502)
-            self.assertEqual(payload, {"error": "actual_import_failed"})
-            self.bridge.error = None
-            status, payload = server.post(event())
+        request_id = "21f6897e-607c-4488-b1c8-087140866ac2"
+        with self.assertLogs("pistats.transaction_sync", level="INFO") as logs:
+            with RunningServer(self.settings, self.service) as server:
+                status, payload = server.post(event(), request_id=request_id)
+                self.assertEqual(status, 502)
+                self.assertEqual(payload, {"error": "actual_import_failed"})
+                self.bridge.error = None
+                status, payload = server.post(event())
 
         self.assertEqual((status, payload), (201, {"status": "imported"}))
         self.assertEqual(len(self.bridge.imports), 1)
+        self.assertTrue(
+            any(
+                f"request_id={request_id}" in line
+                and "outcome=failed" in line
+                and "code=network" in line
+                for line in logs.output
+            )
+        )
 
     def test_imports_are_serialized(self) -> None:
         second_event_id = "sms-v1:" + "b" * 64
@@ -333,6 +534,98 @@ class TransactionSyncApiTests(unittest.TestCase):
 
 
 class TransactionMappingTests(unittest.TestCase):
+    def test_legacy_mapping_gets_a_safe_default_label(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            mappings = base / "mappings.json"
+            mappings.write_text(
+                json.dumps(
+                    {
+                        "mappings": [
+                            {
+                                "sender": "HDFCBK",
+                                "account_hint": "1234",
+                                "actual_account_id": "one",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = base_settings(
+                actual_server_url="http://127.0.0.1:5006",
+                actual_password="actual-password",
+                actual_sync_id="budget-sync-id",
+                actual_currency="INR",
+                actual_mappings_file=str(mappings),
+            )
+
+            service = TransactionSyncService(settings, FakeBridge())
+
+        self.assertEqual(service.account_options()[0]["label"], "HDFCBK ••••1234")
+
+    def test_maximum_length_legacy_mapping_gets_a_bounded_default_label(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            mappings = base / "mappings.json"
+            mappings.write_text(
+                json.dumps(
+                    {
+                        "mappings": [
+                            {
+                                "sender": "S" * 32,
+                                "account_hint": "1" * 64,
+                                "actual_account_id": "one",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = base_settings(
+                actual_server_url="http://127.0.0.1:5006",
+                actual_password="actual-password",
+                actual_sync_id="budget-sync-id",
+                actual_currency="INR",
+                actual_mappings_file=str(mappings),
+            )
+
+            service = TransactionSyncService(settings, FakeBridge())
+
+        label = service.account_options()[0]["label"]
+        self.assertEqual(len(label), 80)
+        self.assertTrue(label.startswith("S" * 32))
+
+    def test_blank_account_label_fails_at_startup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            mappings = base / "mappings.json"
+            mappings.write_text(
+                json.dumps(
+                    {
+                        "mappings": [
+                            {
+                                "label": "   ",
+                                "sender": "HDFCBK",
+                                "account_hint": "1234",
+                                "actual_account_id": "one",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = base_settings(
+                actual_server_url="http://127.0.0.1:5006",
+                actual_password="actual-password",
+                actual_sync_id="budget-sync-id",
+                actual_currency="INR",
+                actual_mappings_file=str(mappings),
+            )
+
+            with self.assertRaisesRegex(ValueError, "invalid mapping"):
+                TransactionSyncService(settings, FakeBridge())
+
     def test_duplicate_normalized_mapping_fails_at_startup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

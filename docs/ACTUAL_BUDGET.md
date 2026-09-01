@@ -17,8 +17,9 @@ incompatibilities.
 - The backend rejects unknown JSON fields, including any attempted full-message
   field, and never stores the payee, amount, reference, or SMS body in its
   idempotency database.
-- The exact normalized sender plus `account_hint` must match an administrator
-  mapping. PiStats never guesses an Actual account.
+- The normalized sender must contain an administrator-configured bank fragment,
+  while `account_hint` must match exactly. PiStats rejects ambiguous matches
+  instead of guessing an Actual account.
 - The event currency must exactly match the configured currency of the selected
   Actual budget. PiStats rejects mismatches before invoking the Actual bridge.
 - `event_id` becomes Actual's `imported_id`, and a private SQLite database adds
@@ -65,7 +66,7 @@ The Debian package does not download npm content during installation. This
 keeps the base PiStats package lightweight and lets each administrator install
 the API version compatible with their own Actual server.
 
-## Create exact account mappings
+## Create account mappings
 
 Create `/etc/pistats/actual-account-mappings.json`:
 
@@ -73,7 +74,8 @@ Create `/etc/pistats/actual-account-mappings.json`:
 {
   "mappings": [
     {
-      "sender": "VM-EXAMPLE",
+      "label": "Example Bank Savings •1234",
+      "sender": "EXAMPLE",
       "account_hint": "1234",
       "actual_account_id": "replace-with-an-actual-account-id"
     }
@@ -81,11 +83,17 @@ Create `/etc/pistats/actual-account-mappings.json`:
 }
 ```
 
-Add one entry for every sender/account combination that may be approved in the
-app. Sender matching is case-insensitive after trimming; account hints remain
-exact after trimming and uppercasing. Use JSON `null` only for a sender whose
-messages genuinely contain no account hint. Duplicate normalized mappings make
-the backend fail at startup.
+Add one entry for every bank identifier/account combination that may be approved
+in the app. `label` is the user-facing bank-account name shown in Android's
+review selector; it must not contain credentials or other secrets. It is
+optional for compatibility with older mapping files, in which case PiStats
+generates a label from the sender and account hint. The configured `sender` is a case-insensitive substring, so a value
+such as `HDFCBK` matches senders including `VM-HDFCBK` and `AD-HDFCBK`. Use a
+distinctive bank identifier rather than a generic fragment. Account hints remain
+exact after trimming and uppercasing. Use JSON `null` only for messages that
+genuinely contain no account hint. Duplicate normalized mappings make the
+backend fail at startup. If one event matches sender fragments mapped to
+different Actual accounts, the request is rejected as ambiguous.
 
 The account ID is the stable ID shown in Actual account URLs and returned by
 Actual's API—not the account display name. Restrict the file to root and the
@@ -171,17 +179,74 @@ password, the budget, encryption, or any mapped account cannot be validated.
 PiStats retries the check after `PISTATS_ACTUAL_HEALTH_CACHE_SECONDS` (30 seconds
 by default).
 
+Verify the safe account choices exposed to Android. Actual account IDs are
+intentionally omitted:
+
+```bash
+curl -H "Authorization: Bearer ${PISTATS_TOKEN}" \
+  http://127.0.0.1:8787/api/transactions/accounts
+```
+
 View errors without exposing request bodies or credentials:
 
 ```bash
 sudo journalctl -u pistats-backend -n 100 --no-pager
 ```
 
+### Diagnose one failed app sync
+
+The Android error card shows a copyable **Diagnostic ID** for every attempted
+upload. Search the Pi journal with that UUID:
+
+```bash
+DIAGNOSTIC_ID='paste-the-uuid-from-the-app'
+sudo journalctl -u pistats-backend --no-pager \
+  --grep "request_id=${DIAGNOSTIC_ID}"
+```
+
+A result looks like this and contains no transaction data:
+
+```text
+transaction_sync request_id=d5675780-a6ad-4e3d-b1f6-35c6703bc123 outcome=failed code=network
+```
+
+Interpret `outcome` as follows:
+
+- `imported`: Actual accepted the transaction.
+- `already_imported`: the idempotency key had completed earlier; this is success.
+- `rejected`: PiStats rejected authentication, validation, currency, or mapping.
+- `failed`: PiStats state storage or the Actual bridge failed; the error code
+  identifies the safe failure category.
+
+If journald retention has expired, query the persistent import record. Use the
+path configured by `PISTATS_TRANSACTION_DATABASE`; the Debian package default is
+shown here:
+
+```bash
+sudo sqlite3 /var/lib/pistats/transactions.sqlite3 \
+  "SELECT request_id, state, error_code, datetime(updated_at, 'unixepoch', 'localtime') FROM transaction_imports WHERE request_id = '${DIAGNOSTIC_ID}';"
+```
+
+An empty database result means the request was rejected before import state
+could be created, never reached the Pi, or has a different configured database
+path. `client_timeout`, `client_io_error`, and `unexpected_client_error` are
+app-side codes, so they may have no matching Pi entry. For those, check network
+reachability and Android logs:
+
+```bash
+adb logcat -s PiStatsTransactionSync:I
+```
+
+Share the diagnostic ID and error code for support. Do not share the raw SMS,
+bearer token, Actual password, mapping file, or database.
+
 Common results:
 
 - `403 transaction_sync_not_configured`: the five core settings are absent.
-- `422 account_mapping_not_found`: the sender/account hint has no exact mapping,
-  or the mapped Actual account no longer exists.
+- `422 account_mapping_not_found`: no sender fragment and exact account hint
+  combination matches, or the mapped Actual account no longer exists.
+- `422 account_mapping_ambiguous`: multiple sender fragments match the same
+  event and point to different Actual accounts.
 - `422 transaction_currency_mismatch`: the SMS currency differs from
   `PISTATS_ACTUAL_CURRENCY`; no Actual import was attempted.
 - `502 actual_import_failed`: Actual or its API client failed; the Android app

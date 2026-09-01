@@ -29,6 +29,7 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
   - `PUT /api/wakeonlan/settings`
   - `POST /api/wakeonlan/wake`
   - `POST /api/media/backup/items` (optional; configured by `PISTATS_MEDIA_BACKUP_ROOT`)
+  - `GET /api/transactions/accounts` (safe labeled account choices for review)
   - `POST /api/transactions/sms` (installed intake; Actual import is opt-in)
 
 ## Backend implementation notes
@@ -44,8 +45,9 @@ That keeps dependencies at zero, makes local testing immediate on Linux, and is 
 - Wake-on-LAN: Python UDP magic packet sent to `PISTATS_WAKE_BROADCAST:PISTATS_WAKE_PORT`
   for `PISTATS_WAKE_MAC`; its app-managed enabled state is persisted in
   `PISTATS_WAKE_STATE_FILE`; no third-party wake dependency is required
-- Transaction sync: strict normalized-event validation, exact sender/account
-  mapping, SQLite idempotency, serialized writes, and a subprocess bridge to
+- Transaction sync: strict normalized-event validation, contained sender
+  fragment plus exact account-hint mapping, SQLite idempotency, serialized
+  writes, opaque account-selection IDs, and a subprocess bridge to
   Actual's official `@actual-app/api` Node package
 
 ## Android scope

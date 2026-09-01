@@ -25,7 +25,7 @@ an announced key rotation.
 
 ## Prepare a release
 
-1. Choose a Debian-compatible version such as `1.3.0`.
+1. Choose a Debian-compatible version such as `1.4.0`.
 2. Add a new top entry to `debian/changelog` with that exact version.
 3. Update user-facing release notes in `docs/RELEASE_NOTES.md`.
 4. Update version-specific installation examples when necessary.
@@ -53,8 +53,8 @@ that order:
 
 ```bash
 git push origin main
-git tag -a v1.3.0 -m "PiStats Backend 1.3.0"
-git push origin v1.3.0
+git tag -a v1.4.0 -m "PiStats Backend 1.4.0"
+git push origin v1.4.0
 ```
 
 Do not move a published release tag. If users could already have downloaded a

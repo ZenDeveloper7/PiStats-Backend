@@ -1,3 +1,12 @@
+pistats-backend (1.4.0) unstable; urgency=medium
+
+  * Add safe labeled Actual-account choices for Android transaction review.
+  * Match configurable bank sender fragments while rejecting ambiguous accounts.
+  * Add privacy-safe request diagnostics across Android, journald, and SQLite.
+  * Preserve legacy mapping and transaction-state compatibility during upgrades.
+
+ -- ZenDeveloper <zenit027@proton.me>  Tue, 01 Sep 2026 20:24:19 +0530
+
 pistats-backend (1.3.0) unstable; urgency=medium
 
   * Add reviewed bank-SMS transaction imports into Actual Budget.

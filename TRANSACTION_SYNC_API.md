@@ -23,6 +23,31 @@ allows its manual enable/disable switch, only while both values are true. Every
 background upload re-checks both flags before sending. Demo mode exposes a safe
 preview but never requests SMS access.
 
+## Account options endpoint
+
+`GET /api/transactions/accounts`
+
+The authenticated endpoint returns the administrator-defined account choices
+used by Android's transaction-review selector:
+
+```json
+{
+  "accounts": [
+    {
+      "mapping_id": "0133fd38-b0e0-5fe8-a97d-7ffcbfc773a4",
+      "label": "HDFC Savings •1234",
+      "sender_contains": "HDFCBK",
+      "account_hint": "1234"
+    }
+  ]
+}
+```
+
+`mapping_id` is a stable opaque identifier derived from the complete private
+mapping. The response never exposes Actual account IDs. Android fetches these
+options before enabling capture and requires the user to select an account when
+reviewing a transaction.
+
 ## Import endpoint
 
 `POST /api/transactions/sms`
@@ -32,6 +57,7 @@ Headers:
 - `Authorization: Bearer <PiStats token>`
 - `Idempotency-Key: sms-v1:<sha256>`
 - `X-PiStats-Device-Id: <installation UUID>`
+- `X-PiStats-Request-Id: <attempt UUID>`
 - `Content-Type: application/json`
 
 Example body:
@@ -46,6 +72,7 @@ Example body:
   "currency": "INR",
   "direction": "debit",
   "payee": "SWIGGY",
+  "account_mapping_id": "0133fd38-b0e0-5fe8-a97d-7ffcbfc773a4",
   "account_hint": "1234",
   "bank_reference": "123456789",
   "sender": "VM-HDFCBK",
@@ -56,9 +83,12 @@ Example body:
 
 Debits use a negative `amount_minor`; credits use a positive value. The backend
 requires a configured three-letter currency for the selected Actual budget and
-rejects an event whose `currency` differs before calling Actual. It maps the
-combination of sender and `account_hint` to a configured Actual Budget account
-and rejects unknown mappings instead of guessing.
+rejects an event whose `currency` differs before calling Actual. It maps a
+case-insensitive sender substring plus an exact normalized `account_hint` to a
+configured Actual Budget account and rejects unknown or ambiguous mappings
+instead of guessing. Reviewed Android events also include `account_mapping_id`;
+the backend verifies that the selected mapping still matches the sender and
+account hint rather than trusting a client-supplied Actual account ID.
 
 Recommended responses:
 
@@ -66,8 +96,16 @@ Recommended responses:
 - `409`: the same idempotency key was already imported. The app treats this as success.
 - `401`/`403`: invalid credentials or disabled capability.
 - `404`: endpoint not installed.
-- `422`: invalid event, currency mismatch, or missing account mapping.
+- `422`: invalid event, currency mismatch, or missing/ambiguous account mapping.
 - `5xx`: retryable backend/Actual failure.
+
+Every response echoes a canonical `X-PiStats-Request-Id`. The backend writes
+one privacy-safe journal entry for the attempt containing only that request ID,
+an outcome, and a bounded error code. It never logs the SMS body, sender,
+account, amount, currency, payee, reference, device ID, bearer token, or Actual
+credentials. The same request ID is stored with the import state so an
+administrator can correlate an app failure with the Pi without receiving the
+transaction details.
 
 The backend should use `event_id` as Actual's stable `imported_id`, import the transaction as uncleared, serialize writes to the budget, and avoid logging complete request bodies.
 

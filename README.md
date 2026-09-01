@@ -27,6 +27,7 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - `GET /api/stats`
 - `POST /api/wakeonlan/wake`
 - `POST /api/media/backup/items` (when configured)
+- `GET /api/transactions/accounts` (safe labeled choices; requires Actual configuration)
 - `POST /api/transactions/sms` (intake is installed; import requires Actual configuration)
 
 `GET /api/health` advertises the optional features enabled by that particular
@@ -241,8 +242,9 @@ sudo grep '^PISTATS_TOKEN=' /opt/pistats/.env
   - three-letter currency code configured for the selected Actual budget;
     transactions in any other currency are rejected before import
 - `PISTATS_ACTUAL_MAPPINGS_FILE`
-  - private JSON mapping from the exact SMS sender and account hint to an Actual
-    account ID; unknown combinations are rejected
+  - private JSON mapping from a contained SMS sender fragment plus an exact
+    account hint to an Actual account ID and optional user-facing label; unknown
+    or ambiguous combinations are rejected
 - `PISTATS_ACTUAL_DATA_DIR`
   - private local cache used by Actual's official API client
 - `PISTATS_ACTUAL_API_MODULE`

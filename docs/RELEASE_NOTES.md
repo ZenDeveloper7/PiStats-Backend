@@ -1,5 +1,28 @@
 # Release notes
 
+## v1.4.0 — 2026-09-01
+
+### Reviewed account selection
+
+- Added an authenticated account-options endpoint with administrator-defined
+  labels and opaque mapping IDs; Actual account IDs remain private.
+- Changed sender matching to case-insensitive configured fragments while
+  retaining exact account-hint validation and rejecting ambiguous matches.
+- Preserved label-less legacy mappings, including maximum-length previously
+  valid sender and account-hint values.
+
+### Production sync diagnostics
+
+- Added a canonical request ID for every transaction attempt and echoed it to
+  clients through `X-PiStats-Request-Id`.
+- Added privacy-safe journal records containing only request ID, outcome, and a
+  bounded error category—never SMS or normalized financial fields.
+- Persisted request IDs and safe bridge failures in the transaction-state
+  database, including an automatic schema migration for existing installs.
+- Documented app, journald, and SQLite correlation workflows for support.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.0>
+
 ## v1.3.0 — 2026-09-01
 
 ### Actual Budget transaction sync

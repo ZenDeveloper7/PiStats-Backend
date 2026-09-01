@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import os
 import re
@@ -25,10 +26,17 @@ RESULT_PREFIX = "PISTATS_RESULT:"
 
 
 class TransactionSyncError(Exception):
-    def __init__(self, status: HTTPStatus, code: str) -> None:
+    def __init__(
+        self,
+        status: HTTPStatus,
+        code: str,
+        *,
+        diagnostic_code: str | None = None,
+    ) -> None:
         super().__init__(code)
         self.status = status
         self.code = code
+        self.diagnostic_code = diagnostic_code or code
 
 
 class ActualBridgeError(Exception):
@@ -39,6 +47,8 @@ class ActualBridgeError(Exception):
 
 @dataclass(frozen=True)
 class AccountMapping:
+    mapping_id: str
+    label: str
     sender: str
     account_hint: str | None
     actual_account_id: str
@@ -54,6 +64,7 @@ class TransactionEvent:
     currency: str
     direction: str
     payee: str
+    account_mapping_id: str | None
     account_hint: str | None
     bank_reference: str | None
     sender: str
@@ -135,7 +146,7 @@ class ActualBridge:
             raise ActualBridgeError("actual_bridge_invalid_response")
         if result.returncode != 0 or response.get("ok") is not True:
             code = response.get("code")
-            if not isinstance(code, str) or not code:
+            if not isinstance(code, str) or re.fullmatch(r"[a-z0-9_]{1,64}", code) is None:
                 code = "actual_api_error"
             raise ActualBridgeError(code)
 
@@ -201,7 +212,23 @@ class TransactionSyncService:
             dict.fromkeys(mapping.actual_account_id for mapping in self._mappings.values())
         )
 
-    def import_event(self, event: TransactionEvent) -> bool:
+    def account_options(self) -> list[dict[str, str | None]]:
+        if not self.configured:
+            raise TransactionSyncError(
+                HTTPStatus.FORBIDDEN,
+                "transaction_sync_not_configured",
+            )
+        return [
+            {
+                "mapping_id": mapping.mapping_id,
+                "label": mapping.label,
+                "sender_contains": mapping.sender,
+                "account_hint": mapping.account_hint,
+            }
+            for mapping in self._mappings.values()
+        ]
+
+    def import_event(self, event: TransactionEvent, request_id: str) -> bool:
         if not self.configured:
             raise TransactionSyncError(
                 HTTPStatus.FORBIDDEN,
@@ -212,8 +239,11 @@ class TransactionSyncService:
                 HTTPStatus.UNPROCESSABLE_ENTITY,
                 "transaction_currency_mismatch",
             )
-        mapping = self._mappings.get(
-            (_normalize_sender(event.sender), _normalize_hint(event.account_hint))
+        mapping = _find_mapping(
+            self._mappings,
+            event.sender,
+            event.account_hint,
+            event.account_mapping_id,
         )
         if mapping is None:
             raise TransactionSyncError(
@@ -225,7 +255,7 @@ class TransactionSyncService:
             self._initialize_database()
             if self._is_completed(event.idempotency_key):
                 return False
-            self._record_processing(event, mapping.actual_account_id)
+            self._record_processing(event, mapping.actual_account_id, request_id)
             try:
                 self._bridge.import_transaction(
                     event.bridge_payload(mapping.actual_account_id)
@@ -242,6 +272,7 @@ class TransactionSyncService:
                 raise TransactionSyncError(
                     HTTPStatus.BAD_GATEWAY,
                     "actual_import_failed",
+                    diagnostic_code=exc.code,
                 ) from exc
             self._record_completed(event.idempotency_key)
             self._healthy = True
@@ -252,7 +283,7 @@ class TransactionSyncService:
         if self._database_initialized:
             return
         self._database.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
-        with sqlite3.connect(self._database) as connection:
+        with closing(sqlite3.connect(self._database)) as connection, connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA synchronous=FULL")
             connection.execute(
@@ -264,15 +295,24 @@ class TransactionSyncService:
                     actual_account_id TEXT NOT NULL,
                     state TEXT NOT NULL CHECK (state IN ('processing', 'completed', 'failed')),
                     error_code TEXT,
+                    request_id TEXT,
                     updated_at INTEGER NOT NULL
                 )
                 """
             )
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(transaction_imports)")
+            }
+            if "request_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE transaction_imports ADD COLUMN request_id TEXT"
+                )
         os.chmod(self._database, 0o600)
         self._database_initialized = True
 
     def _is_completed(self, idempotency_key: str) -> bool:
-        with sqlite3.connect(self._database) as connection:
+        with closing(sqlite3.connect(self._database)) as connection:
             row = connection.execute(
                 "SELECT state FROM transaction_imports WHERE idempotency_key = ?",
                 (idempotency_key,),
@@ -283,17 +323,19 @@ class TransactionSyncService:
         self,
         event: TransactionEvent,
         actual_account_id: str,
+        request_id: str,
     ) -> None:
-        with sqlite3.connect(self._database) as connection:
+        with closing(sqlite3.connect(self._database)) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO transaction_imports (
                     idempotency_key, event_id, device_id, actual_account_id,
-                    state, error_code, updated_at
-                ) VALUES (?, ?, ?, ?, 'processing', NULL, ?)
+                    state, error_code, request_id, updated_at
+                ) VALUES (?, ?, ?, ?, 'processing', NULL, ?, ?)
                 ON CONFLICT(idempotency_key) DO UPDATE SET
                     state = 'processing',
                     error_code = NULL,
+                    request_id = excluded.request_id,
                     updated_at = excluded.updated_at
                 WHERE transaction_imports.state != 'completed'
                 """,
@@ -302,12 +344,13 @@ class TransactionSyncService:
                     event.event_id,
                     event.device_id,
                     actual_account_id,
+                    request_id,
                     int(time.time()),
                 ),
             )
 
     def _record_failure(self, idempotency_key: str, code: str) -> None:
-        with sqlite3.connect(self._database) as connection:
+        with closing(sqlite3.connect(self._database)) as connection, connection:
             connection.execute(
                 """
                 UPDATE transaction_imports
@@ -318,7 +361,7 @@ class TransactionSyncService:
             )
 
     def _record_completed(self, idempotency_key: str) -> None:
-        with sqlite3.connect(self._database) as connection:
+        with closing(sqlite3.connect(self._database)) as connection, connection:
             connection.execute(
                 """
                 UPDATE transaction_imports
@@ -388,7 +431,7 @@ def _parse_event(headers: Mapping[str, str], payload: Any) -> TransactionEvent:
         "source",
         "cleared",
     }
-    optional = {"transaction_date", "transaction_time"}
+    optional = {"transaction_date", "transaction_time", "account_mapping_id"}
     if (
         not isinstance(payload, dict)
         or not required.issubset(payload)
@@ -440,6 +483,9 @@ def _parse_event(headers: Mapping[str, str], payload: Any) -> TransactionEvent:
         raise TransactionSyncError(HTTPStatus.UNPROCESSABLE_ENTITY, "invalid_currency")
     payee = _required_string(payload["payee"], 160, "payee")
     sender = _required_string(payload["sender"], 32, "sender")
+    account_mapping_id = _optional_string(
+        payload.get("account_mapping_id"), 64, "account_mapping_id"
+    )
     account_hint = _optional_string(payload["account_hint"], 64, "account_hint")
     bank_reference = _optional_string(
         payload["bank_reference"], 128, "bank_reference"
@@ -481,6 +527,7 @@ def _parse_event(headers: Mapping[str, str], payload: Any) -> TransactionEvent:
         currency=currency,
         direction=direction,
         payee=payee,
+        account_mapping_id=account_mapping_id,
         account_hint=account_hint,
         bank_reference=bank_reference,
         sender=sender,
@@ -531,16 +578,21 @@ def _load_mappings(path: Path) -> dict[tuple[str, str | None], AccountMapping]:
 
     mappings: dict[tuple[str, str | None], AccountMapping] = {}
     for row in rows:
-        if not isinstance(row, dict) or set(row) != {
-            "sender",
-            "account_hint",
-            "actual_account_id",
-        }:
+        required_keys = {"sender", "account_hint", "actual_account_id"}
+        if (
+            not isinstance(row, dict)
+            or not required_keys.issubset(row)
+            or not set(row).issubset(required_keys | {"label"})
+        ):
             raise ValueError("PISTATS_ACTUAL_MAPPINGS_FILE has an invalid mapping")
         try:
             sender = _normalize_sender(row["sender"])
             hint = _normalize_hint(row["account_hint"])
             account_id = _mapping_string(row["actual_account_id"], 128)
+            if "label" in row:
+                label = _mapping_string(row["label"], 80)
+            else:
+                label = _default_account_label(sender, hint)[:80]
         except (TypeError, ValueError) as exc:
             raise ValueError(
                 "PISTATS_ACTUAL_MAPPINGS_FILE has an invalid mapping"
@@ -548,7 +600,13 @@ def _load_mappings(path: Path) -> dict[tuple[str, str | None], AccountMapping]:
         key = (sender, hint)
         if key in mappings:
             raise ValueError("PISTATS_ACTUAL_MAPPINGS_FILE has a duplicate mapping")
-        mappings[key] = AccountMapping(sender, hint, account_id)
+        mappings[key] = AccountMapping(
+            mapping_id=_account_mapping_id(sender, hint, account_id),
+            label=label,
+            sender=sender,
+            account_hint=hint,
+            actual_account_id=account_id,
+        )
     return mappings
 
 
@@ -569,6 +627,46 @@ def _normalize_hint(value: Any) -> str | None:
     if value is None:
         return None
     return _mapping_string(value, 64).upper()
+
+
+def _default_account_label(sender: str, account_hint: str | None) -> str:
+    return sender if account_hint is None else f"{sender} ••••{account_hint}"
+
+
+def _account_mapping_id(
+    sender: str,
+    account_hint: str | None,
+    actual_account_id: str,
+) -> str:
+    name = f"pistats-actual-account:{sender}:{account_hint or ''}:{actual_account_id}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
+
+
+def _find_mapping(
+    mappings: Mapping[tuple[str, str | None], AccountMapping],
+    sender: str,
+    account_hint: str | None,
+    mapping_id: str | None = None,
+) -> AccountMapping | None:
+    normalized_sender = _normalize_sender(sender)
+    normalized_hint = _normalize_hint(account_hint)
+    matches = [
+        mapping
+        for (sender_fragment, mapped_hint), mapping in mappings.items()
+        if (
+            (mapping_id is None or mapping.mapping_id == mapping_id)
+            and mapped_hint == normalized_hint
+            and sender_fragment in normalized_sender
+        )
+    ]
+    if not matches:
+        return None
+    if len({mapping.actual_account_id for mapping in matches}) > 1:
+        raise TransactionSyncError(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "account_mapping_ambiguous",
+        )
+    return matches[0]
 
 
 def _parse_bridge_result(stdout: str) -> dict[str, Any] | None:

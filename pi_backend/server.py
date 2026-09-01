@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
 import re
 import socket
@@ -27,6 +28,10 @@ from .transaction_sync import (
     TransactionSyncService,
     parse_transaction_request,
 )
+
+
+TRANSACTION_REQUEST_ID_HEADER = "X-PiStats-Request-Id"
+transaction_logger = logging.getLogger("pistats.transaction_sync")
 
 
 def create_handler(
@@ -82,6 +87,15 @@ def create_handler(
                 )
                 return
 
+            if request.path == "/api/transactions/accounts":
+                try:
+                    accounts = transaction_sync.account_options()
+                except TransactionSyncError as exc:
+                    self._send_json(exc.status, {"error": exc.code})
+                    return
+                self._send_json(HTTPStatus.OK, {"accounts": accounts})
+                return
+
             if request.path == "/api/services":
                 self._send_json(
                     HTTPStatus.OK,
@@ -108,13 +122,21 @@ def create_handler(
 
         def do_POST(self) -> None:  # noqa: N802
             path = urlsplit(self.path).path
+            request_id = (
+                _transaction_request_id(self.headers.get(TRANSACTION_REQUEST_ID_HEADER))
+                if path == "/api/transactions/sms"
+                else None
+            )
             if not self._is_authorized(
                 allow_wake_token=path == "/api/wakeonlan/wake"
             ):
                 self._send_json(
                     HTTPStatus.UNAUTHORIZED,
                     {"error": "unauthorized"},
+                    request_id=request_id,
                 )
+                if request_id is not None:
+                    _log_transaction_sync(request_id, "rejected", "unauthorized")
                 return
 
             if path == "/api/wakeonlan/wake":
@@ -144,25 +166,48 @@ def create_handler(
                 return
 
             if path == "/api/transactions/sms":
+                assert request_id is not None
                 try:
                     event = parse_transaction_request(self.headers, self.rfile)
-                    imported = transaction_sync.import_event(event)
+                    imported = transaction_sync.import_event(event, request_id)
                 except TransactionSyncError as exc:
-                    self._send_json(exc.status, {"error": exc.code})
+                    self._send_json(
+                        exc.status,
+                        {"error": exc.code},
+                        request_id=request_id,
+                    )
+                    _log_transaction_sync(
+                        request_id,
+                        "rejected" if exc.status.value < 500 else "failed",
+                        exc.diagnostic_code,
+                    )
                     return
                 except (OSError, sqlite3.Error):
                     self._send_json(
                         HTTPStatus.INTERNAL_SERVER_ERROR,
                         {"error": "transaction_state_failed"},
+                        request_id=request_id,
+                    )
+                    _log_transaction_sync(
+                        request_id,
+                        "failed",
+                        "transaction_state_failed",
                     )
                     return
                 if not imported:
                     self._send_json(
                         HTTPStatus.CONFLICT,
                         {"status": "already_imported"},
+                        request_id=request_id,
                     )
+                    _log_transaction_sync(request_id, "already_imported")
                     return
-                self._send_json(HTTPStatus.CREATED, {"status": "imported"})
+                self._send_json(
+                    HTTPStatus.CREATED,
+                    {"status": "imported"},
+                    request_id=request_id,
+                )
+                _log_transaction_sync(request_id, "imported")
                 return
 
             if path == "/api/media/backup/items":
@@ -358,13 +403,21 @@ def create_handler(
                 raise WakeOnLanError("invalid_wake_settings")
             return payload["enabled"]
 
-        def _send_json(self, status: HTTPStatus, body: dict[str, Any]) -> None:
+        def _send_json(
+            self,
+            status: HTTPStatus,
+            body: dict[str, Any],
+            *,
+            request_id: str | None = None,
+        ) -> None:
             payload = json.dumps(body).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            if request_id is not None:
+                self.send_header(TRANSACTION_REQUEST_ID_HEADER, request_id)
             self.end_headers()
             self.wfile.write(payload)
 
@@ -510,7 +563,38 @@ def _send_magic_packet(settings: Settings) -> None:
         sock.sendto(packet, (settings.wake_broadcast, settings.wake_port))
 
 
+def _transaction_request_id(value: str | None) -> str:
+    if value:
+        try:
+            return str(uuid.UUID(value))
+        except (ValueError, AttributeError):
+            pass
+    return str(uuid.uuid4())
+
+
+def _log_transaction_sync(
+    request_id: str,
+    outcome: str,
+    code: str | None = None,
+) -> None:
+    safe_code = (
+        code
+        if code is not None and re.fullmatch(r"[a-z0-9_]{1,64}", code)
+        else "none" if code is None else "invalid_error_code"
+    )
+    transaction_logger.info(
+        "transaction_sync request_id=%s outcome=%s code=%s",
+        request_id,
+        outcome,
+        safe_code,
+    )
+
+
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     settings = load_settings()
     handler = create_handler(settings)
     server = ThreadingHTTPServer((settings.host, settings.port), handler)

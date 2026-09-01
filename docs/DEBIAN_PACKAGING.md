@@ -30,13 +30,13 @@ On Debian or Raspberry Pi OS:
 ```bash
 sudo apt install build-essential debhelper devscripts lintian
 ./packaging/build-deb.sh
-lintian --profile debian ../pistats-backend_1.3.0_amd64.changes
+lintian --profile debian ../pistats-backend_1.4.0_amd64.changes
 ```
 
 Install the result:
 
 ```bash
-sudo apt install ../pistats-backend_1.3.0_all.deb
+sudo apt install ../pistats-backend_1.4.0_all.deb
 sudoedit /etc/pistats/pistats.env
 sudo systemctl restart pistats-backend
 sudo systemctl status pistats-backend
@@ -83,7 +83,7 @@ PISTATS_MEDIA_BACKUP_ROOT=/srv/media/mobile-backups
 Actual Budget support is also optional. The package ships the bridge code but
 does not download executable npm content during installation. Administrators
 install the matching official API client and configure private credentials and
-exact account mappings by following [Actual Budget transaction
+explicit sender-fragment/account mappings by following [Actual Budget transaction
 sync](ACTUAL_BUDGET.md).
 
 ## Automated distribution
