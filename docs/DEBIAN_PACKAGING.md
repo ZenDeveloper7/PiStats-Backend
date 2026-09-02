@@ -30,13 +30,13 @@ On Debian or Raspberry Pi OS:
 ```bash
 sudo apt install build-essential debhelper devscripts lintian
 ./packaging/build-deb.sh
-lintian --profile debian ../pistats-backend_1.4.0_amd64.changes
+lintian --profile debian ../pistats-backend_1.4.1_amd64.changes
 ```
 
 Install the result:
 
 ```bash
-sudo apt install ../pistats-backend_1.4.0_all.deb
+sudo apt install ../pistats-backend_1.4.1_all.deb
 sudoedit /etc/pistats/pistats.env
 sudo systemctl restart pistats-backend
 sudo systemctl status pistats-backend

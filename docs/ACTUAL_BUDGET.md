@@ -89,11 +89,12 @@ review selector; it must not contain credentials or other secrets. It is
 optional for compatibility with older mapping files, in which case PiStats
 generates a label from the sender and account hint. The configured `sender` is a case-insensitive substring, so a value
 such as `HDFCBK` matches senders including `VM-HDFCBK` and `AD-HDFCBK`. Use a
-distinctive bank identifier rather than a generic fragment. Account hints remain
-exact after trimming and uppercasing. Use JSON `null` only for messages that
-genuinely contain no account hint. Duplicate normalized mappings make the
-backend fail at startup. If one event matches sender fragments mapped to
-different Actual accounts, the request is rejected as ambiguous.
+distinctive bank identifier rather than a generic fragment. `account_hint` is
+required, must be a non-empty string, and remains exact after trimming and
+uppercasing. Mappings with a missing or `null` hint make the backend fail at
+startup. Duplicate normalized mappings also fail at startup. If one event
+matches sender fragments mapped to different Actual accounts, the request is
+rejected as ambiguous.
 
 The account ID is the stable ID shown in Actual account URLs and returned by
 Actual's API—not the account display name. Restrict the file to root and the

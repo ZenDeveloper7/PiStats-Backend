@@ -50,7 +50,7 @@ class AccountMapping:
     mapping_id: str
     label: str
     sender: str
-    account_hint: str | None
+    account_hint: str
     actual_account_id: str
 
 
@@ -65,7 +65,7 @@ class TransactionEvent:
     direction: str
     payee: str
     account_mapping_id: str | None
-    account_hint: str | None
+    account_hint: str
     bank_reference: str | None
     sender: str
     source: str
@@ -426,12 +426,16 @@ def _parse_event(headers: Mapping[str, str], payload: Any) -> TransactionEvent:
         "direction",
         "payee",
         "account_hint",
-        "bank_reference",
         "sender",
         "source",
         "cleared",
     }
-    optional = {"transaction_date", "transaction_time", "account_mapping_id"}
+    optional = {
+        "transaction_date",
+        "transaction_time",
+        "account_mapping_id",
+        "bank_reference",
+    }
     if (
         not isinstance(payload, dict)
         or not required.issubset(payload)
@@ -486,9 +490,9 @@ def _parse_event(headers: Mapping[str, str], payload: Any) -> TransactionEvent:
     account_mapping_id = _optional_string(
         payload.get("account_mapping_id"), 64, "account_mapping_id"
     )
-    account_hint = _optional_string(payload["account_hint"], 64, "account_hint")
+    account_hint = _required_string(payload["account_hint"], 64, "account_hint")
     bank_reference = _optional_string(
-        payload["bank_reference"], 128, "bank_reference"
+        payload.get("bank_reference"), 128, "bank_reference"
     )
     transaction_date = _optional_string(
         payload.get("transaction_date"), 10, "transaction_date"
@@ -563,7 +567,7 @@ def _contains_control_character(value: str) -> bool:
     return any(ord(character) < 32 or ord(character) == 127 for character in value)
 
 
-def _load_mappings(path: Path) -> dict[tuple[str, str | None], AccountMapping]:
+def _load_mappings(path: Path) -> dict[tuple[str, str], AccountMapping]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -576,7 +580,7 @@ def _load_mappings(path: Path) -> dict[tuple[str, str | None], AccountMapping]:
     if not isinstance(rows, list) or not rows:
         raise ValueError("PISTATS_ACTUAL_MAPPINGS_FILE must contain mappings")
 
-    mappings: dict[tuple[str, str | None], AccountMapping] = {}
+    mappings: dict[tuple[str, str], AccountMapping] = {}
     for row in rows:
         required_keys = {"sender", "account_hint", "actual_account_id"}
         if (
@@ -623,29 +627,27 @@ def _normalize_sender(value: Any) -> str:
     return _mapping_string(value, 32).upper()
 
 
-def _normalize_hint(value: Any) -> str | None:
-    if value is None:
-        return None
+def _normalize_hint(value: Any) -> str:
     return _mapping_string(value, 64).upper()
 
 
-def _default_account_label(sender: str, account_hint: str | None) -> str:
-    return sender if account_hint is None else f"{sender} ••••{account_hint}"
+def _default_account_label(sender: str, account_hint: str) -> str:
+    return f"{sender} ••••{account_hint}"
 
 
 def _account_mapping_id(
     sender: str,
-    account_hint: str | None,
+    account_hint: str,
     actual_account_id: str,
 ) -> str:
-    name = f"pistats-actual-account:{sender}:{account_hint or ''}:{actual_account_id}"
+    name = f"pistats-actual-account:{sender}:{account_hint}:{actual_account_id}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 def _find_mapping(
-    mappings: Mapping[tuple[str, str | None], AccountMapping],
+    mappings: Mapping[tuple[str, str], AccountMapping],
     sender: str,
-    account_hint: str | None,
+    account_hint: str,
     mapping_id: str | None = None,
 ) -> AccountMapping | None:
     normalized_sender = _normalize_sender(sender)

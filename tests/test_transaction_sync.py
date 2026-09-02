@@ -457,6 +457,42 @@ class TransactionSyncApiTests(unittest.TestCase):
         self.assertEqual(status, 422)
         self.assertEqual(payload, {"error": "invalid_transaction_event"})
 
+    def test_bank_reference_may_be_omitted(self) -> None:
+        payload = event()
+        del payload["bank_reference"]
+
+        with RunningServer(self.settings, self.service) as server:
+            status, response = server.post(payload)
+
+        self.assertEqual((status, response), (201, {"status": "imported"}))
+        self.assertIsNone(self.bridge.imports[0]["transaction"]["notes"])
+
+    def test_bank_reference_may_be_null(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, response = server.post(event(bank_reference=None))
+
+        self.assertEqual((status, response), (201, {"status": "imported"}))
+        self.assertIsNone(self.bridge.imports[0]["transaction"]["notes"])
+
+    def test_account_hint_is_required(self) -> None:
+        payload = event()
+        del payload["account_hint"]
+
+        with RunningServer(self.settings, self.service) as server:
+            status, response = server.post(payload)
+
+        self.assertEqual(status, 422)
+        self.assertEqual(response, {"error": "invalid_transaction_event"})
+        self.assertEqual(self.bridge.imports, [])
+
+    def test_account_hint_cannot_be_null(self) -> None:
+        with RunningServer(self.settings, self.service) as server:
+            status, response = server.post(event(account_hint=None))
+
+        self.assertEqual(status, 422)
+        self.assertEqual(response, {"error": "invalid_account_hint"})
+        self.assertEqual(self.bridge.imports, [])
+
     def test_rejects_sign_that_disagrees_with_direction(self) -> None:
         with RunningServer(self.settings, self.service) as server:
             status, payload = server.post(event(amount_minor=24_550))
@@ -534,6 +570,35 @@ class TransactionSyncApiTests(unittest.TestCase):
 
 
 class TransactionMappingTests(unittest.TestCase):
+    def test_mapping_requires_a_non_null_account_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            mappings = base / "mappings.json"
+            mappings.write_text(
+                json.dumps(
+                    {
+                        "mappings": [
+                            {
+                                "sender": "HDFCBK",
+                                "account_hint": None,
+                                "actual_account_id": "one",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = base_settings(
+                actual_server_url="http://127.0.0.1:5006",
+                actual_password="actual-password",
+                actual_sync_id="budget-sync-id",
+                actual_currency="INR",
+                actual_mappings_file=str(mappings),
+            )
+
+            with self.assertRaisesRegex(ValueError, "invalid mapping"):
+                TransactionSyncService(settings, FakeBridge())
+
     def test_legacy_mapping_gets_a_safe_default_label(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

@@ -1,5 +1,18 @@
 # Release notes
 
+## v1.4.1 — 2026-09-02
+
+### Transaction contract compatibility
+
+- Made `account_hint` a required non-empty value in both mapping files and
+  normalized transaction events.
+- Made `bank_reference` genuinely optional so Android may omit it when an SMS
+  does not contain a reference.
+- Clarified that Android sends the account hint belonging to the account chosen
+  during review, which the backend verifies before import.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.1>
+
 ## v1.4.0 — 2026-09-01
 
 ### Reviewed account selection

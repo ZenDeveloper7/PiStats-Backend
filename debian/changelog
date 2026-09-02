@@ -1,3 +1,11 @@
+pistats-backend (1.4.1) unstable; urgency=medium
+
+  * Require a non-empty account hint in Actual account mappings and imports.
+  * Accept an omitted or null optional bank reference from Android clients.
+  * Document that reviewed account hints come from the selected account mapping.
+
+ -- ZenDeveloper <zenit027@proton.me>  Wed, 02 Sep 2026 11:52:21 +0530
+
 pistats-backend (1.4.0) unstable; urgency=medium
 
   * Add safe labeled Actual-account choices for Android transaction review.

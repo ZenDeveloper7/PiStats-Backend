@@ -89,6 +89,8 @@ configured Actual Budget account and rejects unknown or ambiguous mappings
 instead of guessing. Reviewed Android events also include `account_mapping_id`;
 the backend verifies that the selected mapping still matches the sender and
 account hint rather than trusting a client-supplied Actual account ID.
+`account_hint` is required and must be a non-empty string. `bank_reference` is
+optional and may be omitted or set to `null`.
 
 Recommended responses:
 
