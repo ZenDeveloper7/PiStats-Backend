@@ -73,7 +73,7 @@
   <main>
     <article>
       <h1>PiStats Privacy Policy</h1>
-      <p class="meta">Last updated: August 13, 2026</p>
+      <p class="meta">Last updated: September 2, 2026</p>
 
       <p>
         PiStats is an Android app for monitoring a Raspberry Pi through a self-hosted backend.
@@ -87,6 +87,8 @@
         <li>The backend base URL you configure</li>
         <li>The backend authentication token you configure, encrypted using Android Keystore</li>
         <li>Your media-backup preferences and upload checkpoint, when enabled</li>
+        <li>Normalized transaction details, review corrections, and safe sync diagnostics in an
+            Android-Keystore-encrypted queue, when transaction sync is enabled</li>
         <li>Cached widget state derived from backend responses</li>
       </ul>
 
@@ -98,27 +100,45 @@
         <li>Authenticated telemetry requests to read Raspberry Pi status</li>
         <li>Authenticated Wake-on-LAN requests when you use the Wake PC action</li>
         <li>Photos and videos you authorize Android to make available, only when you enable media backup</li>
+        <li>Normalized transaction fields that you review and approve, only when you explicitly sync them</li>
       </ul>
+
+      <h2>SMS transaction processing</h2>
+      <p>
+        If you explicitly enable transaction capture and grant SMS permission, PiStats processes
+        future incoming SMS messages on your device to identify financial transaction alerts. It
+        does not read existing inbox history. OTP, failed, pending, promotional, and balance-only
+        messages are ignored. The complete SMS body is not stored and is never sent to the PiStats
+        backend, Firebase, or Actual Budget. Only a normalized transaction that you review and
+        approve can be sent to your configured self-hosted backend.
+      </p>
 
       <h2>Personal data</h2>
       <p>
-        PiStats does not require account creation and does not intentionally collect personal data
-        such as your name, email address, contacts, messages, or location. If you enable media
-        backup, the app processes the photos and videos you authorize solely to upload them to the
-        self-hosted backend you configured.
+        PiStats does not require a PiStats account and does not intentionally collect your name,
+        contacts, or location. If you enable media backup, the app processes the photos and videos
+        you authorize solely to upload them to the self-hosted backend you configured. If you
+        enable transaction capture, the app processes future financial SMS alerts as described
+        above.
       </p>
 
       <h2>Analytics and advertising</h2>
       <p>
-        PiStats does not include third-party advertising SDKs and does not use third-party analytics
-        services.
+        PiStats does not include advertising SDKs. It uses Google Firebase Analytics for aggregate
+        app-usage measurement and Firebase Crashlytics for crash diagnostics. Depending on the
+        platform and Firebase configuration, these services may process app interactions, crash
+        traces, app and device metadata, and identifiers used for analytics or diagnostics. PiStats
+        does not intentionally send backend tokens, backend passwords, SMS bodies, normalized
+        transaction fields, or user media to Firebase. See
+        <a href="https://firebase.google.com/support/privacy">Firebase Privacy and Security</a>
+        for information about Google's processing.
       </p>
 
       <h2>Data sharing</h2>
       <p>
-        PiStats does not sell your data and does not share your data with third parties for
-        advertising or marketing purposes. Any data visible in the app comes from the backend you
-        operate or choose to connect to.
+        PiStats does not sell your data or share it for advertising. Google processes analytics and
+        crash-diagnostic data as a service provider. Feature data visible in the app otherwise
+        comes from, or is sent to, the backend you operate or choose to connect to.
       </p>
 
       <h2>Backend responsibility</h2>
@@ -148,8 +168,8 @@
 
       <h2>Contact</h2>
       <p>
-        If you need to contact the developer about this policy, use the support or contact details
-        provided in the app listing or repository profile.
+        For privacy questions, contact
+        <a href="mailto:zenit027@proton.me">zenit027@proton.me</a>.
       </p>
     </article>
   </main>

@@ -1,8 +1,41 @@
-# PiStats Backend
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ZenDeveloper7/PiStats/main/app/src/main/ic_launcher-playstore.png" width="112" alt="PiStats logo">
+</p>
 
-PiStats Backend is a lightweight private HTTP JSON API for monitoring a Raspberry Pi and relaying Wake-on-LAN.
+<h1 align="center">PiStats Backend</h1>
 
-It is designed to pair with the PiStats Android app, but it is also usable as a standalone service by anything that can poll JSON endpoints.
+<p align="center">
+  A small, self-hosted Raspberry Pi API for monitoring, Wake-on-LAN, private
+  media backup, and reviewed Actual Budget imports.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/releases/latest"><img src="https://img.shields.io/github/v/release/ZenDeveloper7/PiStats-Backend" alt="Latest release"></a>
+  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/actions/workflows/release-deb.yml"><img src="https://github.com/ZenDeveloper7/PiStats-Backend/actions/workflows/release-deb.yml/badge.svg" alt="Debian release workflow"></a>
+  <img src="https://img.shields.io/badge/APT-signed%20repository-A81D33?logo=debian&logoColor=white" alt="Signed APT repository">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ZenDeveloper7/PiStats-Backend" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#install-on-a-pi">Install</a> ·
+  <a href="#api-endpoints">API</a> ·
+  <a href="docs/INSTALLATION.md">Documentation</a> ·
+  <a href="https://github.com/ZenDeveloper7/PiStats">Android app</a> ·
+  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/discussions">Discussions</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+PiStats Backend pairs with the
+[PiStats Android app](https://github.com/ZenDeveloper7/PiStats), but every
+endpoint is plain authenticated JSON and can be used by another trusted client.
+Installations start private and minimal: optional integrations stay disabled
+until their owner configures them.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ZenDeveloper7/PiStats/main/play-store-assets/screenshots/tablet/01-dashboard.png" width="860" alt="PiStats Android dashboard connected to the backend">
+</p>
 
 ## Features
 
@@ -19,6 +52,14 @@ It is designed to pair with the PiStats Android app, but it is also usable as a 
 - Wake-on-LAN relay over the Pi's LAN
 - repeatable Pi install script
 - signed APT repository and architecture-independent Debian package
+
+| Principle | What it means |
+| --- | --- |
+| Private by default | Listens on localhost unless the operator explicitly chooses Tailscale or another bind address. |
+| Generic installs | No personal service names, devices, media roots, or bank accounts are preconfigured. |
+| Capability-aware | `/api/health` tells clients which optional features are actually ready. |
+| Safe upgrades | Debian upgrades preserve the installation configuration and persistent state. |
+| Auditable | A compact Python service, documented contracts, regression tests, and signed release packages. |
 
 ## API endpoints
 
