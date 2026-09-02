@@ -1,3 +1,11 @@
+pistats-backend (1.4.2) unstable; urgency=medium
+
+  * Rebrand the service and documentation as OwnNode Agent.
+  * Preserve package, service, configuration, state, API, and APT compatibility.
+  * Refresh public Android links and document the staged brand transition.
+
+ -- ZenDeveloper <zenit027@proton.me>  Wed, 02 Sep 2026 22:30:00 +0530
+
 pistats-backend (1.4.1) unstable; urgency=medium
 
   * Require a non-empty account hint in Actual account mappings and imports.

@@ -1,6 +1,6 @@
 # Security policy
 
-PiStats Backend protects a bearer-authenticated private API and can optionally
+OwnNode Agent protects a bearer-authenticated private API and can optionally
 receive media and reviewed financial transaction data. Please do not disclose a
 suspected vulnerability in a public issue.
 

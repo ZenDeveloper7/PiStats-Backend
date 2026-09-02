@@ -1,9 +1,14 @@
 # Installation guide
 
-PiStats Backend supports Raspberry Pi OS and other Debian-based systems with
-Python 3.11 or newer. Installing from the PiStats APT repository is recommended:
+OwnNode Agent supports Raspberry Pi OS and other Debian-based systems with
+Python 3.11 or newer. Installing from the OwnNode APT repository is recommended:
 APT verifies signed repository metadata and provides normal upgrades through
 `apt upgrade`.
+
+The product was previously named PiStats. The package, service, configuration
+directory, environment variables, and published APT URL intentionally retain
+their existing `pistats` identifiers so installed systems continue to upgrade
+without migration work.
 
 ## Before you install
 
@@ -40,7 +45,7 @@ gpg --show-keys --with-fingerprint \
   /usr/share/keyrings/pistats-archive-keyring.gpg
 ```
 
-Add the repository and install PiStats:
+Add the repository and install OwnNode Agent:
 
 ```bash
 echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/PiStats-Backend/apt stable main" \
@@ -55,13 +60,13 @@ The package starts `pistats-backend.service` and creates a configuration file at
 
 ## Alternative: install a downloaded `.deb`
 
-Download `pistats-backend_1.4.1_all.deb` and `SHA256SUMS` from the
-[v1.4.1 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.1),
+Download `pistats-backend_1.4.2_all.deb` and `SHA256SUMS` from the
+[v1.4.2 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.2),
 verify the package, and install it:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./pistats-backend_1.4.1_all.deb
+sudo apt install ./pistats-backend_1.4.2_all.deb
 ```
 
 This installs the same package, but future releases are not discovered
@@ -102,7 +107,7 @@ sudo systemctl status pistats-backend --no-pager
 ```
 
 Enter the resulting `http://100.x.y.z:8787` base URL and generated token in the
-PiStats Android app. Do not expose this HTTP service directly to the public
+OwnNode Android app. Do not expose this HTTP service directly to the public
 internet; use Tailscale or another trusted private network.
 
 ## Verify the installation
@@ -168,7 +173,7 @@ curl -X PUT -H "Authorization: Bearer ${PISTATS_TOKEN}" \
 
 ## Optional media backup
 
-Create a group shared by PiStats and Samba, then create the library and private
+Create a group shared by OwnNode Agent and Samba, then create the library and private
 state parent on the same filesystem:
 
 ```bash
@@ -198,7 +203,7 @@ and temporary paths may use any writable absolute location accessible to the
 
 Install the matching official Actual API client, create explicit sender/account
 mappings, and add the private integration settings described in
-[Actual Budget transaction sync](ACTUAL_BUDGET.md). PiStats only imports
+[Actual Budget transaction sync](ACTUAL_BUDGET.md). OwnNode Agent only imports
 approved normalized transactions; it never starts or stops Actual Budget.
 
 ## Upgrade
@@ -210,7 +215,7 @@ sudo apt update
 sudo apt upgrade
 ```
 
-To upgrade only PiStats:
+To upgrade only OwnNode Agent:
 
 ```bash
 sudo apt install --only-upgrade pistats-backend
@@ -233,7 +238,7 @@ Remove the application and `/etc/pistats/pistats.env`:
 sudo apt purge pistats-backend
 ```
 
-PiStats deliberately retains `/var/lib/pistats` and media libraries even on
+OwnNode Agent deliberately retains `/var/lib/pistats` and media libraries even on
 purge. Remove those only after confirming they contain nothing you need.
 
 Remove the APT source and archive key if you no longer want updates:

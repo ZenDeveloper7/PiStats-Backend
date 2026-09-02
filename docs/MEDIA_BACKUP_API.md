@@ -1,6 +1,6 @@
 # Media backup API
 
-PiStats discovers media through Android `MediaStore` and streams each file to the
+OwnNode discovers media through Android `MediaStore` and streams each file to the
 existing Pi service. The Pi service, not the Android app, owns filesystem and
 optional network-share credentials.
 
@@ -8,7 +8,7 @@ optional network-share credentials.
 
 ```http
 POST /api/media/backup/items?display_name=IMG_0001.jpg&mime_type=image%2Fjpeg&size_bytes=1234&modified_at_seconds=1700000000&captured_at_millis=1699999999000&relative_path=DCIM%2FCamera%2F
-Authorization: Bearer <existing PiStats token>
+Authorization: Bearer <existing OwnNode token>
 Idempotency-Key: <device UUID>:external:<MediaStore ID>:<modified seconds>
 X-PiStats-Device-Id: <app-generated UUID>
 X-PiStats-Media-Key: external:<MediaStore ID>:<modified seconds>
@@ -79,7 +79,7 @@ used for very large video libraries.
 
 Set `PISTATS_MEDIA_BACKUP_ROOT` to an existing, service-writable directory on the
 desired filesystem to enable this endpoint. That directory may also be exported
-by Samba or another file-sharing service, but PiStats does not require one. The
+by Samba or another file-sharing service, but OwnNode Agent does not require one. The
 endpoint returns `404` when the value is unset. The following settings are optional:
 
 - `PISTATS_MEDIA_BACKUP_MAX_BYTES` (default `1073741824`)

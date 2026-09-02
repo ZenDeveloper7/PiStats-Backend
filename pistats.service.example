@@ -1,5 +1,5 @@
 [Unit]
-Description=PiStats Raspberry Pi monitoring backend
+Description=OwnNode Agent for Raspberry Pi
 After=network-online.target
 Wants=network-online.target
 

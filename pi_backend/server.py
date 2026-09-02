@@ -45,7 +45,7 @@ def create_handler(
     transaction_sync = transaction_sync_service or TransactionSyncService(settings)
 
     class PiStatsHandler(BaseHTTPRequestHandler):
-        server_version = "PiStats/1.0"
+        server_version = "OwnNode/1.0"
 
         def do_GET(self) -> None:  # noqa: N802
             if not self._is_authorized():
@@ -599,7 +599,7 @@ def main() -> None:
     handler = create_handler(settings)
     server = ThreadingHTTPServer((settings.host, settings.port), handler)
     print(
-        "PiStats backend listening on "
+        "OwnNode Agent listening on "
         f"http://{settings.host}:{settings.port} "
         f"(bind_mode={settings.bind_mode})"
     )

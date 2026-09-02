@@ -238,7 +238,7 @@ if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
 fi
 
 if [[ ! -f "${PWD}/pi_backend/server.py" ]]; then
-  echo "Run this script from the PiStats-Backend repository root." >&2
+  echo "Run this script from the OwnNode Agent repository root." >&2
   exit 1
 fi
 
@@ -374,7 +374,7 @@ if [[ -n "${ACTUAL_MAPPINGS_FILE}" ]]; then
   ACTUAL_MAPPINGS_FILE="$(realpath -m -- "${ACTUAL_MAPPINGS_FILE}")"
 fi
 
-echo "Installing PiStats backend"
+echo "Installing OwnNode Agent"
 echo "  user: ${SERVICE_USER}"
 echo "  install dir: ${INSTALL_DIR}"
 echo "  service: ${SERVICE_NAME}.service"
@@ -558,7 +558,7 @@ chmod 600 "${ENV_PATH}"
 
 cat >"${SERVICE_PATH}" <<EOF
 [Unit]
-Description=PiStats Raspberry Pi monitoring backend
+Description=OwnNode Agent for Raspberry Pi
 After=network-online.target
 Wants=network-online.target
 
@@ -597,7 +597,7 @@ else
 fi
 
 echo
-echo "PiStats install complete."
+echo "OwnNode Agent install complete."
 echo "Config file: ${ENV_PATH}"
 echo "Service: ${SERVICE_NAME}.service"
 echo "Port: ${PORT}"

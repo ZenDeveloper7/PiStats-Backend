@@ -6,7 +6,7 @@ supports normal APT upgrades and runs under a dedicated service account.
 
 ## Goal
 
-Run the PiStats backend as a private monitoring API on your Raspberry Pi, point the Android app at it, and optionally relay Wake-on-LAN packets through the Pi.
+Run OwnNode Agent as a private monitoring API on your Raspberry Pi, point the Android app at it, and optionally relay Wake-on-LAN packets through the Pi.
 
 ## Assumptions
 
@@ -65,7 +65,7 @@ sudo ./install-on-pi.sh \
 ```
 
 To enable phone media backup, pass a writable destination directory. It may be
-exported separately through Samba, but that is not required by PiStats.
+exported separately through Samba, but that is not required by OwnNode Agent.
 The installer creates a missing destination and a private state directory for
 the service user:
 

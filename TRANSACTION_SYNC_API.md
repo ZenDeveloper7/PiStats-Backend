@@ -1,6 +1,6 @@
 # Transaction sync API
 
-PiStats can capture future bank transaction SMS messages on Android, parse them locally, and send approved normalized events to the private Pi backend. The Android app never sends or persists the complete SMS body.
+OwnNode can capture future bank transaction SMS messages on Android, parse them locally, and send approved normalized events to the private Pi backend. The Android app never sends or persists the complete SMS body.
 
 ## Capability discovery
 
@@ -16,7 +16,7 @@ The backend advertises the feature from `GET /api/health`:
 }
 ```
 
-`transaction_sync` means the PiStats intake endpoint is installed. `actual_budget`
+`transaction_sync` means the OwnNode Agent intake endpoint is installed. `actual_budget`
 must reflect the current runtime health of the Actual Budget service, not merely
 whether it is configured. The dashboard exposes transaction sync, and the app
 allows its manual enable/disable switch, only while both values are true. Every
@@ -54,7 +54,7 @@ reviewing a transaction.
 
 Headers:
 
-- `Authorization: Bearer <PiStats token>`
+- `Authorization: Bearer <OwnNode token>`
 - `Idempotency-Key: sms-v1:<sha256>`
 - `X-PiStats-Device-Id: <installation UUID>`
 - `X-PiStats-Request-Id: <attempt UUID>`

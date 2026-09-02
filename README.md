@@ -1,10 +1,11 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ZenDeveloper7/PiStats/main/app/src/main/ic_launcher-playstore.png" width="112" alt="PiStats logo">
+  <img src="https://raw.githubusercontent.com/ZenDeveloper7/OwnNode/main/app/src/main/ic_launcher-playstore.png" width="112" alt="OwnNode logo">
 </p>
 
-<h1 align="center">PiStats Backend</h1>
+<h1 align="center">OwnNode Agent</h1>
 
 <p align="center">
+  <strong>Your private digital home, powered by your own server.</strong><br>
   A small, self-hosted Raspberry Pi API for monitoring, Wake-on-LAN, private
   media backup, and reviewed Actual Budget imports.
 </p>
@@ -22,19 +23,24 @@
   <a href="#install-on-a-pi">Install</a> ·
   <a href="#api-endpoints">API</a> ·
   <a href="docs/INSTALLATION.md">Documentation</a> ·
-  <a href="https://github.com/ZenDeveloper7/PiStats">Android app</a> ·
+  <a href="https://github.com/ZenDeveloper7/OwnNode">Android app</a> ·
   <a href="https://github.com/ZenDeveloper7/PiStats-Backend/discussions">Discussions</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
-PiStats Backend pairs with the
-[PiStats Android app](https://github.com/ZenDeveloper7/PiStats), but every
+OwnNode Agent pairs with the
+[OwnNode Android app](https://github.com/ZenDeveloper7/OwnNode), but every
 endpoint is plain authenticated JSON and can be used by another trusted client.
 Installations start private and minimal: optional integrations stay disabled
 until their owner configures them.
 
+> OwnNode Agent was previously named PiStats Backend. For upgrade compatibility,
+> the Debian package and service remain `pistats-backend`, environment variables
+> remain `PISTATS_*`, API headers remain `X-PiStats-*`, and the signed APT site
+> remains under the `PiStats-Backend` GitHub Pages path.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ZenDeveloper7/PiStats/main/play-store-assets/screenshots/tablet/01-dashboard.png" width="860" alt="PiStats Android dashboard connected to the backend">
+  <img src="https://raw.githubusercontent.com/ZenDeveloper7/OwnNode/main/play-store-assets/screenshots/tablet/01-dashboard.png" width="860" alt="OwnNode Android dashboard connected to the backend">
 </p>
 
 ## Features
@@ -174,7 +180,8 @@ sudo systemctl restart pistats-backend
 
 See the [complete installation guide](docs/INSTALLATION.md) for key
 verification, Tailscale, Docker, Wake-on-LAN, media backup, upgrades, removal,
-and troubleshooting.
+and troubleshooting. See the [brand transition notes](docs/BRAND_TRANSITION.md)
+for the compatibility identifiers retained from PiStats Backend.
 
 ## Source install on a Pi
 

@@ -63,13 +63,13 @@ done
 release_config="${temporary_directory}/apt-release.conf"
 cat >"${release_config}" <<EOF
 APT::FTPArchive::Release {
-  Origin "PiStats";
-  Label "PiStats";
+  Origin "OwnNode";
+  Label "OwnNode";
   Suite "${suite}";
   Codename "${suite}";
   Architectures "all arm64 armhf";
   Components "main";
-  Description "PiStats Backend packages";
+  Description "OwnNode Agent packages";
 };
 EOF
 

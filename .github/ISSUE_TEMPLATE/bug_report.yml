@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible PiStats Backend problem
+description: Report a reproducible OwnNode Agent problem
 title: "[Bug]: "
 labels: [bug]
 body:

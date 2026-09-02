@@ -1,4 +1,4 @@
-# PiStats v1 Implementation Plan
+# OwnNode v1 Implementation Plan
 
 ## Why this backend stack
 

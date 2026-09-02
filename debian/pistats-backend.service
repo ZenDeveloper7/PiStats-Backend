@@ -1,5 +1,5 @@
 [Unit]
-Description=PiStats Raspberry Pi backend
+Description=OwnNode Agent for Raspberry Pi
 Documentation=https://github.com/ZenDeveloper7/PiStats-Backend
 After=network-online.target
 Wants=network-online.target

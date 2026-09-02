@@ -1,5 +1,20 @@
 # Release notes
 
+## v1.4.2 — 2026-09-02
+
+### OwnNode brand transition
+
+- Renamed the Android product to **OwnNode** and the companion service to
+  **OwnNode Agent**.
+- Retained `com.zen.pistats`, `pistats-backend`, `PISTATS_*`, `X-PiStats-*`,
+  existing state/configuration paths, and the published APT URL for seamless
+  upgrades.
+- Kept the backend repository slug `PiStats-Backend` because GitHub Pages does
+  not redirect project-site URLs after a repository rename. This protects the
+  signed APT feed used by installed systems.
+
+Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.2>
+
 ## v1.4.1 — 2026-09-02
 
 ### Transaction contract compatibility

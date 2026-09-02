@@ -1,6 +1,6 @@
-# Contributing to PiStats Backend
+# Contributing to OwnNode Agent
 
-Thanks for helping improve PiStats Backend. Focused fixes, new collectors,
+Thanks for helping improve OwnNode Agent. Focused fixes, new collectors,
 documentation improvements, packaging work, and tests are welcome.
 
 ## Project rules
@@ -11,7 +11,7 @@ documentation improvements, packaging work, and tests are welcome.
 - Treat media and transaction data as sensitive. Tests and examples must use
   synthetic values.
 - Coordinate Android contract changes with the
-  [PiStats app](https://github.com/ZenDeveloper7/PiStats).
+  [OwnNode app](https://github.com/ZenDeveloper7/OwnNode).
 - Open an issue before a large API, persistence, or packaging change.
 
 ## Verify a change

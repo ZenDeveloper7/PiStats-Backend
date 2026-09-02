@@ -13,7 +13,7 @@ Depends: ${misc:Depends}, python3 (>= 3.11), adduser
 Recommends: iproute2
 Suggests: docker.io, nodejs (>= 22), npm
 Description: private Raspberry Pi monitoring, backup, and integration API
- PiStats Backend provides a bearer-token-protected HTTP API for Raspberry Pi
+ OwnNode Agent provides a bearer-token-protected HTTP API for Raspberry Pi
  monitoring, Wake-on-LAN, optional idempotent media backup, and opt-in bank-SMS
  transaction intake for Actual Budget. Optional monitored services are selected
  by each client; storage and integration settings are selected by each

@@ -1,10 +1,10 @@
 # Actual Budget transaction sync
 
-PiStats can import normalized, user-approved bank SMS transactions into a
+OwnNode can import normalized, user-approved bank SMS transactions into a
 self-hosted Actual Budget instance. The integration is disabled by default and
 does not start, stop, or otherwise manage the Actual service.
 
-Actual does not expose a general transaction-writing REST API. PiStats therefore
+Actual does not expose a general transaction-writing REST API. OwnNode Agent therefore
 uses Actual's official [`@actual-app/api`](https://actualbudget.org/docs/api/)
 Node package. Its local budget engine downloads a private cache, imports through
 `importTransactions`, synchronizes the result, and shuts down cleanly. The API
@@ -18,16 +18,16 @@ incompatibilities.
   field, and never stores the payee, amount, reference, or SMS body in its
   idempotency database.
 - The normalized sender must contain an administrator-configured bank fragment,
-  while `account_hint` must match exactly. PiStats rejects ambiguous matches
+  while `account_hint` must match exactly. OwnNode Agent rejects ambiguous matches
   instead of guessing an Actual account.
 - The event currency must exactly match the configured currency of the selected
-  Actual budget. PiStats rejects mismatches before invoking the Actual bridge.
+  Actual budget. OwnNode Agent rejects mismatches before invoking the Actual bridge.
 - `event_id` becomes Actual's `imported_id`, and a private SQLite database adds
   backend idempotency. A retry after a completed import returns HTTP `409`.
 - Imports are serialized, marked uncleared, use `reimportDeleted: false`, and
   retain the original normalized payee capitalization.
 
-Keep PiStats and Actual on localhost, a LAN, or a trusted private network. Do
+Keep OwnNode Agent and Actual on localhost, a LAN, or a trusted private network. Do
 not expose either service directly to the public internet.
 
 ## Prerequisites
@@ -52,7 +52,7 @@ version in Actual's settings UI.
 ## Install the official Actual API client
 
 Replace `26.8.1` with the version of your Actual server. The dedicated prefix
-keeps this optional dependency out of the PiStats source tree and root-owned so
+keeps this optional dependency out of the OwnNode Agent source tree and root-owned so
 the unprivileged service cannot modify executable code:
 
 ```bash
@@ -63,7 +63,7 @@ sudo chmod -R go-w /usr/local/lib/pistats-actual-api
 ```
 
 The Debian package does not download npm content during installation. This
-keeps the base PiStats package lightweight and lets each administrator install
+keeps the base OwnNode Agent package lightweight and lets each administrator install
 the API version compatible with their own Actual server.
 
 ## Create account mappings
@@ -86,7 +86,7 @@ Create `/etc/pistats/actual-account-mappings.json`:
 Add one entry for every bank identifier/account combination that may be approved
 in the app. `label` is the user-facing bank-account name shown in Android's
 review selector; it must not contain credentials or other secrets. It is
-optional for compatibility with older mapping files, in which case PiStats
+optional for compatibility with older mapping files, in which case OwnNode Agent
 generates a label from the sender and account hint. The configured `sender` is a case-insensitive substring, so a value
 such as `HDFCBK` matches senders including `VM-HDFCBK` and `AD-HDFCBK`. Use a
 distinctive bank identifier rather than a generic fragment. `account_hint` is
@@ -98,7 +98,7 @@ rejected as ambiguous.
 
 The account ID is the stable ID shown in Actual account URLs and returned by
 Actual's API—not the account display name. Restrict the file to root and the
-PiStats service group:
+OwnNode Agent service group:
 
 ```bash
 sudo chown root:pistats /etc/pistats/actual-account-mappings.json
@@ -108,7 +108,7 @@ sudo chmod 0640 /etc/pistats/actual-account-mappings.json
 For a source installation, replace group `pistats` with the configured service
 user's primary group and choose a private path readable by that user.
 
-## Configure PiStats
+## Configure OwnNode Agent
 
 Edit `/etc/pistats/pistats.env` for an APT installation:
 
@@ -135,7 +135,7 @@ server, set `NODE_EXTRA_CA_CERTS` in the service environment to a trusted CA
 certificate. Disabling TLS verification is not supported.
 
 `PISTATS_ACTUAL_CURRENCY` must be the three-letter currency code configured for
-the selected budget, such as `INR`. PiStats does not perform currency conversion;
+the selected budget, such as `INR`. OwnNode Agent does not perform currency conversion;
 an event with any other currency returns `422 transaction_currency_mismatch`.
 
 Password values are preserved exactly. If a server or encryption password starts
@@ -143,7 +143,7 @@ or ends with whitespace, quote the entire value in the systemd environment file,
 for example `PISTATS_ACTUAL_PASSWORD=" password with edge spaces "`.
 
 The five core settings—server URL, password, sync ID, currency, and mappings
-file—must be provided together. Partial configuration stops PiStats at startup
+file—must be provided together. Partial configuration stops OwnNode Agent at startup
 instead of silently exposing a broken feature.
 
 Apply the configuration:
@@ -155,7 +155,7 @@ sudo systemctl status pistats-backend --no-pager
 
 ## Verify
 
-Load the PiStats token without printing it and check capability discovery:
+Load the OwnNode Agent token without printing it and check capability discovery:
 
 ```bash
 PISTATS_TOKEN="$(sudo sed -n 's/^PISTATS_TOKEN=//p' /etc/pistats/pistats.env)"
@@ -177,7 +177,7 @@ The response reports:
 `transaction_sync` means the intake code is installed. `actual_budget` is a
 cached runtime check and becomes false when Node, the API module, Actual, the
 password, the budget, encryption, or any mapped account cannot be validated.
-PiStats retries the check after `PISTATS_ACTUAL_HEALTH_CACHE_SECONDS` (30 seconds
+OwnNode Agent retries the check after `PISTATS_ACTUAL_HEALTH_CACHE_SECONDS` (30 seconds
 by default).
 
 Verify the safe account choices exposed to Android. Actual account IDs are
@@ -215,8 +215,8 @@ Interpret `outcome` as follows:
 
 - `imported`: Actual accepted the transaction.
 - `already_imported`: the idempotency key had completed earlier; this is success.
-- `rejected`: PiStats rejected authentication, validation, currency, or mapping.
-- `failed`: PiStats state storage or the Actual bridge failed; the error code
+- `rejected`: OwnNode Agent rejected authentication, validation, currency, or mapping.
+- `failed`: OwnNode Agent state storage or the Actual bridge failed; the error code
   identifies the safe failure category.
 
 If journald retention has expired, query the persistent import record. Use the
@@ -257,9 +257,9 @@ Common results:
 
 ## Disable or remove
 
-Remove the five core `PISTATS_ACTUAL_*` settings and restart PiStats. The intake
+Remove the five core `PISTATS_ACTUAL_*` settings and restart OwnNode Agent. The intake
 endpoint remains installed, but `actual_budget` becomes false and imports return
-`403`. PiStats does not stop or modify the Actual service.
+`403`. OwnNode Agent does not stop or modify the Actual service.
 
 The local cache and idempotency database are retained intentionally. Remove
 them only after confirming no pending retry or audit state is needed.

@@ -1,13 +1,13 @@
 # Maintainer release guide
 
-This guide describes how to publish a PiStats Backend Debian release and update
+This guide describes how to publish an OwnNode Agent Debian release and update
 the signed APT repository.
 
 ## One-time repository setup
 
 1. Configure GitHub Pages with **Source: GitHub Actions**.
 2. Create a dedicated signing key whose private material is used only for the
-   PiStats APT archive.
+   OwnNode APT archive.
 3. Store its ASCII-armored private key in the repository Actions secret
    `APT_GPG_PRIVATE_KEY`.
 4. Publish and retain the public fingerprint independently so users can verify
@@ -25,7 +25,7 @@ an announced key rotation.
 
 ## Prepare a release
 
-1. Choose a Debian-compatible version such as `1.4.1`.
+1. Choose a Debian-compatible version such as `1.4.2`.
 2. Add a new top entry to `debian/changelog` with that exact version.
 3. Update user-facing release notes in `docs/RELEASE_NOTES.md`.
 4. Update version-specific installation examples when necessary.
@@ -53,8 +53,8 @@ that order:
 
 ```bash
 git push origin main
-git tag -a v1.4.1 -m "PiStats Backend 1.4.1"
-git push origin v1.4.1
+git tag -a v1.4.2 -m "OwnNode Agent 1.4.2"
+git push origin v1.4.2
 ```
 
 Do not move a published release tag. If users could already have downloaded a
