@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: ZenDeveloper <zenit027@proton.me>
 Build-Depends: debhelper-compat (= 13), python3 (>= 3.11)
 Standards-Version: 4.7.2
-Homepage: https://github.com/ZenDeveloper7/PiStats-Backend
+Homepage: https://github.com/ZenDeveloper7/OwnNode-Agent
 Rules-Requires-Root: no
 
 Package: pistats-backend

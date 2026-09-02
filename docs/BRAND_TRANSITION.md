@@ -13,18 +13,22 @@ Existing installations continue to use the following compatibility identifiers:
 - Python module: `pi_backend`
 - API routes and `X-PiStats-*` headers
 - persistent state and media bookkeeping paths
-- signed APT URL under `zendeveloper7.github.io/PiStats-Backend`
 
 Changing these would provide no user benefit and would risk losing settings,
 state, idempotency records, or seamless package upgrades.
 
-## Why the repository slug remains unchanged
+## Repository and APT migration
 
-The repository `ZenDeveloper7/PiStats-Backend` publishes the signed APT archive
-as a GitHub Pages project site. GitHub repository redirects do not cover project
-site URLs. The repository therefore retains its current slug until the archive
-is moved to a custom domain with a staged source-list migration for existing
-installations.
+The repository is now `ZenDeveloper7/OwnNode-Agent`, and its signed APT archive
+is published at `https://zendeveloper7.github.io/OwnNode-Agent/apt`. GitHub
+repository redirects do not cover project-site URLs, so existing installations
+must update `/etc/apt/sources.list.d/pistats.list` once:
+
+```bash
+sudo sed -i 's|zendeveloper7.github.io/PiStats-Backend/apt|zendeveloper7.github.io/OwnNode-Agent/apt|' \
+  /etc/apt/sources.list.d/pistats.list
+sudo apt update
+```
 
 Public documentation, package descriptions, logs, and systemd descriptions use
 the OwnNode Agent name. Compatibility identifiers remain documented explicitly

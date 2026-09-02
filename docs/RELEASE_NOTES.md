@@ -1,5 +1,16 @@
 # Release notes
 
+## v1.4.3 — 2026-09-02
+
+### OwnNode Agent repository migration
+
+- Renamed the source repository to `ZenDeveloper7/OwnNode-Agent`.
+- Moved the signed GitHub Pages APT feed to the matching `OwnNode-Agent` path.
+- Updated package metadata, installation commands, badges, and documentation.
+- Documented the one-time source-list update required by existing APT users.
+
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.4.3>
+
 ## v1.4.2 — 2026-09-02
 
 ### OwnNode brand transition
@@ -9,11 +20,10 @@
 - Retained `com.zen.pistats`, `pistats-backend`, `PISTATS_*`, `X-PiStats-*`,
   existing state/configuration paths, and the published APT URL for seamless
   upgrades.
-- Kept the backend repository slug `PiStats-Backend` because GitHub Pages does
-  not redirect project-site URLs after a repository rename. This protects the
-  signed APT feed used by installed systems.
+- Initially kept the backend repository slug `PiStats-Backend` to preserve its
+  GitHub Pages APT URL. Version 1.4.3 completes the repository and feed move.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.2>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.4.2>
 
 ## v1.4.1 — 2026-09-02
 
@@ -26,7 +36,7 @@ Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.2>
 - Clarified that Android sends the account hint belonging to the account chosen
   during review, which the backend verifies before import.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.1>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.4.1>
 
 ## v1.4.0 — 2026-09-01
 
@@ -49,7 +59,7 @@ Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.1>
   database, including an automatic schema migration for existing installs.
 - Documented app, journald, and SQLite correlation workflows for support.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.0>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.4.0>
 
 ## v1.3.0 — 2026-09-01
 
@@ -71,7 +81,7 @@ Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.0>
 - Added APT/source state paths, bridge packaging, setup documentation, and
   integration tests across the Python and Node boundary.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.3.0>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.3.0>
 
 ## v1.2.0 — 2026-08-18
 
@@ -92,9 +102,9 @@ changing the Pi-side network and hardware configuration.
 - Added coverage for authentication, validation, concurrent access, restart
   persistence, and unconfigured Wake-on-LAN behavior.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.2.0>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.2.0>
 
-Installation: <https://github.com/ZenDeveloper7/PiStats-Backend/blob/main/docs/INSTALLATION.md>
+Installation: <https://github.com/ZenDeveloper7/OwnNode-Agent/blob/main/docs/INSTALLATION.md>
 
 ## v1.1.0 — 2026-08-13
 
@@ -130,9 +140,9 @@ service list.
 - Added tests for service discovery, client filtering, health capabilities,
   configuration validation, disk opt-in behavior, and service-unit path access.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.1.0>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.1.0>
 
-Installation: <https://github.com/ZenDeveloper7/PiStats-Backend/blob/main/docs/INSTALLATION.md>
+Installation: <https://github.com/ZenDeveloper7/OwnNode-Agent/blob/main/docs/INSTALLATION.md>
 
 ## v1.0.0 — 2026-08-13
 
@@ -187,6 +197,6 @@ generic installation across Raspberry Pi users rather than one predefined host.
 - Verified the live APT repository signature and a clean installation of
   `pistats-backend 1.0.0` directly from the published repository.
 
-Release: <https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.0.0>
+Release: <https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.0.0>
 
-Installation: <https://github.com/ZenDeveloper7/PiStats-Backend/blob/main/docs/INSTALLATION.md>
+Installation: <https://github.com/ZenDeveloper7/OwnNode-Agent/blob/main/docs/INSTALLATION.md>

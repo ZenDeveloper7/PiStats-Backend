@@ -1,3 +1,11 @@
+pistats-backend (1.4.3) unstable; urgency=medium
+
+  * Rename the source repository to OwnNode-Agent.
+  * Move the signed APT feed to the OwnNode-Agent GitHub Pages path.
+  * Document the one-time APT source migration for existing installations.
+
+ -- ZenDeveloper <zenit027@proton.me>  Wed, 02 Sep 2026 22:45:01 +0530
+
 pistats-backend (1.4.2) unstable; urgency=medium
 
   * Rebrand the service and documentation as OwnNode Agent.

@@ -9,4 +9,4 @@ RUN apt-get update \
         lintian \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /work/PiStats-Backend
+WORKDIR /work/OwnNode-Agent

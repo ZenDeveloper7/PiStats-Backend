@@ -11,11 +11,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/releases/latest"><img src="https://img.shields.io/github/v/release/ZenDeveloper7/PiStats-Backend" alt="Latest release"></a>
-  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/actions/workflows/release-deb.yml"><img src="https://github.com/ZenDeveloper7/PiStats-Backend/actions/workflows/release-deb.yml/badge.svg" alt="Debian release workflow"></a>
+  <a href="https://github.com/ZenDeveloper7/OwnNode-Agent/releases/latest"><img src="https://img.shields.io/github/v/release/ZenDeveloper7/OwnNode-Agent" alt="Latest release"></a>
+  <a href="https://github.com/ZenDeveloper7/OwnNode-Agent/actions/workflows/release-deb.yml"><img src="https://github.com/ZenDeveloper7/OwnNode-Agent/actions/workflows/release-deb.yml/badge.svg" alt="Debian release workflow"></a>
   <img src="https://img.shields.io/badge/APT-signed%20repository-A81D33?logo=debian&logoColor=white" alt="Signed APT repository">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/ZenDeveloper7/PiStats-Backend" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ZenDeveloper7/OwnNode-Agent" alt="MIT license"></a>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <a href="#api-endpoints">API</a> ·
   <a href="docs/INSTALLATION.md">Documentation</a> ·
   <a href="https://github.com/ZenDeveloper7/OwnNode">Android app</a> ·
-  <a href="https://github.com/ZenDeveloper7/PiStats-Backend/discussions">Discussions</a> ·
+  <a href="https://github.com/ZenDeveloper7/OwnNode-Agent/discussions">Discussions</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -36,8 +36,8 @@ until their owner configures them.
 
 > OwnNode Agent was previously named PiStats Backend. For upgrade compatibility,
 > the Debian package and service remain `pistats-backend`, environment variables
-> remain `PISTATS_*`, API headers remain `X-PiStats-*`, and the signed APT site
-> remains under the `PiStats-Backend` GitHub Pages path.
+> remain `PISTATS_*`, and API headers remain `X-PiStats-*`. Existing APT users
+> need the one-time repository URL migration shown below.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ZenDeveloper7/OwnNode/main/play-store-assets/screenshots/tablet/01-dashboard.png" width="860" alt="OwnNode Android dashboard connected to the backend">
@@ -160,10 +160,10 @@ python3 -m pi_backend.server
 The recommended installation method is the signed APT repository:
 
 ```bash
-curl -fsSL https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg \
+curl -fsSL https://zendeveloper7.github.io/OwnNode-Agent/apt/pistats-archive-keyring.gpg \
   | sudo tee /usr/share/keyrings/pistats-archive-keyring.gpg >/dev/null
 
-echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/PiStats-Backend/apt stable main" \
+echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/OwnNode-Agent/apt stable main" \
   | sudo tee /etc/apt/sources.list.d/pistats.list >/dev/null
 
 sudo apt update
@@ -182,6 +182,10 @@ See the [complete installation guide](docs/INSTALLATION.md) for key
 verification, Tailscale, Docker, Wake-on-LAN, media backup, upgrades, removal,
 and troubleshooting. See the [brand transition notes](docs/BRAND_TRANSITION.md)
 for the compatibility identifiers retained from PiStats Backend.
+
+Existing installations configured with the previous GitHub Pages URL should
+replace `PiStats-Backend` with `OwnNode-Agent` in
+`/etc/apt/sources.list.d/pistats.list`, then run `sudo apt update`.
 
 ## Source install on a Pi
 
@@ -387,7 +391,7 @@ This repo includes a static privacy policy page for the Android app at
 GitHub Pages is deployed by the APT publishing workflow. The policy URL is:
 
 ```text
-https://zendeveloper7.github.io/PiStats-Backend/privacy-policy.html
+https://zendeveloper7.github.io/OwnNode-Agent/privacy-policy.html
 ```
 
 ## License

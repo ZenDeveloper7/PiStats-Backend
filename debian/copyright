@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: OwnNode Agent
-Source: https://github.com/ZenDeveloper7/PiStats-Backend
+Source: https://github.com/ZenDeveloper7/OwnNode-Agent
 
 Files: *
 Copyright: 2026 ZenDeveloper7

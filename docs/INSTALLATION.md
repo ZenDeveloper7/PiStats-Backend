@@ -6,9 +6,9 @@ APT verifies signed repository metadata and provides normal upgrades through
 `apt upgrade`.
 
 The product was previously named PiStats. The package, service, configuration
-directory, environment variables, and published APT URL intentionally retain
-their existing `pistats` identifiers so installed systems continue to upgrade
-without migration work.
+directory, and environment variables retain their existing `pistats`
+identifiers. The repository rename changes only the APT URL; existing users can
+migrate it with the command below without reinstalling the service.
 
 ## Before you install
 
@@ -28,7 +28,7 @@ or Wake-on-LAN hardware automatically.
 Install the public archive key:
 
 ```bash
-curl -fsSL https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg \
+curl -fsSL https://zendeveloper7.github.io/OwnNode-Agent/apt/pistats-archive-keyring.gpg \
   | sudo tee /usr/share/keyrings/pistats-archive-keyring.gpg >/dev/null
 ```
 
@@ -48,7 +48,7 @@ gpg --show-keys --with-fingerprint \
 Add the repository and install OwnNode Agent:
 
 ```bash
-echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/PiStats-Backend/apt stable main" \
+echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/OwnNode-Agent/apt stable main" \
   | sudo tee /etc/apt/sources.list.d/pistats.list >/dev/null
 
 sudo apt update
@@ -58,15 +58,30 @@ sudo apt install pistats-backend
 The package starts `pistats-backend.service` and creates a configuration file at
 `/etc/pistats/pistats.env`.
 
+### Migrate an existing APT installation
+
+If `/etc/apt/sources.list.d/pistats.list` uses the previous
+`PiStats-Backend` URL, update it once:
+
+```bash
+sudo sed -i 's|zendeveloper7.github.io/PiStats-Backend/apt|zendeveloper7.github.io/OwnNode-Agent/apt|' \
+  /etc/apt/sources.list.d/pistats.list
+sudo apt update
+sudo apt install --only-upgrade pistats-backend
+```
+
+This changes only the package source URL. It does not replace the token,
+configuration, transaction state, or media-backup database.
+
 ## Alternative: install a downloaded `.deb`
 
-Download `pistats-backend_1.4.2_all.deb` and `SHA256SUMS` from the
-[v1.4.2 release](https://github.com/ZenDeveloper7/PiStats-Backend/releases/tag/v1.4.2),
+Download `pistats-backend_1.4.3_all.deb` and `SHA256SUMS` from the
+[v1.4.3 release](https://github.com/ZenDeveloper7/OwnNode-Agent/releases/tag/v1.4.3),
 verify the package, and install it:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./pistats-backend_1.4.2_all.deb
+sudo apt install ./pistats-backend_1.4.3_all.deb
 ```
 
 This installs the same package, but future releases are not discovered

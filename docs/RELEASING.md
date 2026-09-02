@@ -25,7 +25,7 @@ an announced key rotation.
 
 ## Prepare a release
 
-1. Choose a Debian-compatible version such as `1.4.2`.
+1. Choose a Debian-compatible version such as `1.4.3`.
 2. Add a new top entry to `debian/changelog` with that exact version.
 3. Update user-facing release notes in `docs/RELEASE_NOTES.md`.
 4. Update version-specific installation examples when necessary.
@@ -53,8 +53,8 @@ that order:
 
 ```bash
 git push origin main
-git tag -a v1.4.2 -m "OwnNode Agent 1.4.2"
-git push origin v1.4.2
+git tag -a v1.4.3 -m "OwnNode Agent 1.4.3"
+git push origin v1.4.3
 ```
 
 Do not move a published release tag. If users could already have downloaded a
@@ -92,9 +92,9 @@ live repository signature:
 ```bash
 tmpdir="$(mktemp -d)"
 curl -fsSL -o "${tmpdir}/keyring.gpg" \
-  https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg
+  https://zendeveloper7.github.io/OwnNode-Agent/apt/pistats-archive-keyring.gpg
 curl -fsSL -o "${tmpdir}/InRelease" \
-  https://zendeveloper7.github.io/PiStats-Backend/apt/dists/stable/InRelease
+  https://zendeveloper7.github.io/OwnNode-Agent/apt/dists/stable/InRelease
 gpgv --keyring "${tmpdir}/keyring.gpg" "${tmpdir}/InRelease"
 ```
 

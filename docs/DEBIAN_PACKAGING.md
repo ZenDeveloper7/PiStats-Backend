@@ -30,13 +30,13 @@ On Debian or Raspberry Pi OS:
 ```bash
 sudo apt install build-essential debhelper devscripts lintian
 ./packaging/build-deb.sh
-lintian --profile debian ../pistats-backend_1.4.2_amd64.changes
+lintian --profile debian ../pistats-backend_1.4.3_amd64.changes
 ```
 
 Install the result:
 
 ```bash
-sudo apt install ../pistats-backend_1.4.2_all.deb
+sudo apt install ../pistats-backend_1.4.3_all.deb
 sudoedit /etc/pistats/pistats.env
 sudo systemctl restart pistats-backend
 sudo systemctl status pistats-backend
@@ -101,10 +101,10 @@ release triggers APT publishing, which:
 The live repository is configured with:
 
 ```bash
-curl -fsSL https://zendeveloper7.github.io/PiStats-Backend/apt/pistats-archive-keyring.gpg \
+curl -fsSL https://zendeveloper7.github.io/OwnNode-Agent/apt/pistats-archive-keyring.gpg \
   | sudo tee /usr/share/keyrings/pistats-archive-keyring.gpg >/dev/null
 
-echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/PiStats-Backend/apt stable main" \
+echo "deb [signed-by=/usr/share/keyrings/pistats-archive-keyring.gpg] https://zendeveloper7.github.io/OwnNode-Agent/apt stable main" \
   | sudo tee /etc/apt/sources.list.d/pistats.list >/dev/null
 
 sudo apt update

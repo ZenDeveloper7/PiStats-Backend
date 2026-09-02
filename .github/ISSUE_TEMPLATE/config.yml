@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and deployment help
-    url: https://github.com/ZenDeveloper7/PiStats-Backend/discussions
+    url: https://github.com/ZenDeveloper7/OwnNode-Agent/discussions
     about: Ask usage and configuration questions in Discussions.
   - name: Security report
-    url: https://github.com/ZenDeveloper7/PiStats-Backend/security/policy
+    url: https://github.com/ZenDeveloper7/OwnNode-Agent/security/policy
     about: Read the private reporting instructions before disclosing a vulnerability.
